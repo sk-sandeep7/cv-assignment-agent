@@ -112,27 +112,6 @@ AZURE_OPENAI_DEPLOYMENT_NAME=your-deployment-name
 AZURE_OPENAI_API_KEY=your-azure-api-key-here
 ```
 
-## 🚀 Deployment
-
-### Frontend (Vercel)
-1. Connect your GitHub repository to Vercel
-2. Set build command: `npm run build`
-3. Set output directory: `dist`
-4. Deploy
-
-### Backend (Railway)
-1. Connect your GitHub repository to Railway
-2. Select the `backend` folder
-3. Add environment variables in Railway dashboard
-4. Deploy
-
-## 📡 API Endpoints
-
-- `POST /api/generate-questions` - Generate questions based on topics
-- `POST /api/regenerate-question` - Regenerate a single question
-- `POST /api/generate-custom-question` - Generate question with custom input
-- `POST /api/generate-evaluation-rubrics` - Generate evaluation rubrics
-
 ## 🧪 Testing
 
 1. Start both backend and frontend servers
