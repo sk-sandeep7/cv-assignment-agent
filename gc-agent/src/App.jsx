@@ -4,6 +4,7 @@ import Sidebar from './components/Sidebar';
 import MainContent from './components/MainContent';
 import CustomInputModal from './components/CustomInputModal';
 import EvaluationModal from './components/EvaluationModal';
+import API_BASE_URL from './config';
 
 function App() {
   const navigate = useNavigate();
@@ -32,7 +33,7 @@ function App() {
   const handleGenerateAssignments = async (topicsInput, numQuestions) => {
     setIsLoading(true);
     try {
-      const res = await fetch('http://localhost:8000/api/generate-questions', {
+      const res = await fetch(`${API_BASE_URL}/api/generate-questions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -56,7 +57,7 @@ function App() {
     setSelectedQuestion(question);
     setIsLoading(true);
     try {
-      const res = await fetch('http://localhost:8000/api/get-evaluation-criteria', {
+      const res = await fetch(`${API_BASE_URL}/api/get-evaluation-criteria`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question }),
@@ -78,7 +79,7 @@ function App() {
       setAssignmentQuestions(newQuestions);
 
       try {
-        const res = await fetch('http://localhost:8000/api/regenerate-question', {
+        const res = await fetch(`${API_BASE_URL}/api/regenerate-question`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ topic: topicsInput.split(',').map(topic => topic.trim()) }),
@@ -103,7 +104,7 @@ function App() {
     const question = assignmentQuestions[index];
 
     try {
-      const res = await fetch('http://localhost:8000/api/generate-evaluation-rubrics', {
+      const res = await fetch(`${API_BASE_URL}/api/generate-evaluation-rubrics`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question: question.question, marks: question.marks }),
@@ -138,7 +139,7 @@ function App() {
     setAssignmentQuestions(newQuestions);
 
     try {
-      const res = await fetch('http://localhost:8000/api/generate-custom-question', {
+      const res = await fetch(`${API_BASE_URL}/api/generate-custom-question`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_input: customInput, index: index }),
@@ -166,7 +167,7 @@ function App() {
   const handleProceed = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('http://localhost:8000/api/execute-task', {
+      const res = await fetch(`${API_BASE_URL}/api/execute-task`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question: selectedQuestion, criteria: evaluationCriteria }),

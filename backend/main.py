@@ -11,7 +11,12 @@ app = FastAPI()
 # Allow CORS for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:5173",  # Local development
+        "http://localhost:3000",  # Alternative local port
+        "https://*.vercel.app",   # Vercel domains
+        "https://*.onrender.com", # Render domains (if you deploy frontend there too)
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
