@@ -1,0 +1,1045 @@
+[
+  {
+    "question": "Write a program using OpenCV to read an RGB image, convert it into grayscale, visualise the individual colour channels (R, G, B), and compute as well as display the histogram for each channel",
+    "topic": [
+      "Image Loading",
+      "Color Spaces",
+      "Grayscale Conversion",
+      "Color Channels",
+      "Image Histogram"
+    ],
+    "marks": 2
+  },
+  {
+    "question": "Using OpenCV, read an RGB image, add Gaussian noise to it (e.g., mean $=0$. variance $=10-20$. Then, on the noisy image: 1. Convert it to grayscale. 2. Visualise the individual colour channels (R. G, B) and the grayscale image. 3. Compute and display the histogram for each channel (R, G, B) and for the grayscale image. All plots must be clearly labelled",
+    "topic": [
+      "Image Loading",
+      "Image Noise",
+      "Gaussian Noise",
+      "Color Spaces",
+      "Grayscale Conversion",
+      "Color Channels",
+      "Image Histogram"
+    ],
+    "marks": 3
+  },
+  {
+    "question": "Apply three different filters of sizes $3\\times3$, $5\\times5,$ and $7\\times7$ on an image with and without Gaussian noise. Perform edge detection using the Sobel edge detector. Compare and describe the differences observed in edge detection results across the filters, kernel sizes, and noise conditions",
+    "topic": [
+      "Image Filtering",
+      "Edge Detection",
+      "Sobel Operator",
+      "Image Noise",
+      "Kernel Size"
+    ],
+    "marks": 2
+  },
+  {
+    "question": "Apply three different filters of sizes $3\\times3$, $5\\times5,$ and $7\\times7$ on an image with and without Gaussian noise. Perform edge detection using the Sobel operator in both horizontal and vertical directions. Compare and describe the differences observed in edge detection results across the filters, kernel sizes, and noise conditions",
+    "topic": [
+      "Image Filtering",
+      "Edge Detection",
+      "Sobel Operator",
+      "Image Noise",
+      "Kernel Size"
+    ],
+    "marks": 2
+  },
+  {
+    "question": "Apply three different filters of sizes $3\\times3$, $5\\times5,$ and $7\\times7$ on an image with and without Gaussian noise. Perform edge detection using the Laplacian edge detector. Compare and describe the differences observed in edge detection results across the filters, kernel sizes, and noise conditions.",
+    "topic": [
+      "Image Filtering",
+      "Edge Detection",
+      "Laplacian Operator",
+      "Image Noise",
+      "Kernel Size"
+    ],
+    "marks": 1
+  },
+  {
+    "question": "Implement the Canny edge detector from scratch by following these steps: 1. Apply Gaussian smoothing. 2. Compute gradient magnitude and orientation using Sobel filters. 3. Apply non-maximum suppression. 4. Apply hysteresis thresholding (use two thresholds). Apply your implementation to both a clean image and a noisy image. Show how noise affects the results.",
+    "topic": [
+      "Edge Detection",
+      "Canny Edge Detector",
+      "Gaussian Smoothing",
+      "Sobel Operator",
+      "Gradient Magnitude",
+      "Non-maximum Suppression",
+      "Hysteresis Thresholding"
+    ],
+    "marks": 5
+  },
+  {
+    "question": "As part of implementing a face detection algorithm from scratch, capture an image of yourself using a webcam or upload a face image.",
+    "topic": [
+      "Face Detection",
+      "Image Acquisition"
+    ],
+    "marks": 1
+  },
+  {
+    "question": "As part of implementing a face detection algorithm from scratch, compute the Integral Image to efficiently calculate pixel sums over rectangular regions.",
+    "topic": [
+      "Face Detection",
+      "Integral Image",
+      "Feature Extraction"
+    ],
+    "marks": 2
+  },
+  {
+    "question": "Implement a face detection algorithm from scratch by using an integral image to detect a face with Haar features.",
+    "topic": [
+      "Face Detection",
+      "Haar-like Features",
+      "Integral Image",
+      "Object Detection"
+    ],
+    "marks": 7
+  },
+  {
+    "question": "Using a dataset of 1000 images, implement a face anti-spoofing model that performs classification based on using the raw pixel values of the face images as features. Train a Support Vector Machine (SVM) classifier on these raw pixel features. Compare and analyze your results using metrics like accuracy, f1-score, precision, recall and a confusion matrix. Document the findings and discuss the failure and success of this method.",
+    "topic": [
+      "Face Anti-spoofing",
+      "Classification",
+      "Raw Pixel Features",
+      "Support Vector Machine (SVM)",
+      "Model Evaluation"
+    ],
+    "marks": 3
+  },
+  {
+    "question": "Using a dataset of 1000 images, implement a face anti-spoofing model that performs classification based on Local Binary Patterns (LBP) features extracted from the face images. Train an SVM classifier using the LBP features. Compare and analyze your results using metrics like accuracy, f1-score, precision, recall and a confusion matrix. Document the findings and discuss the failure and success of this method.",
+    "topic": [
+      "Face Anti-spoofing",
+      "Classification",
+      "Feature Extraction",
+      "Local Binary Patterns (LBP)",
+      "Support Vector Machine (SVM)"
+    ],
+    "marks": 3
+  },
+  {
+    "question": "Using a dataset of 1000 images, implement a face anti-spoofing model that performs classification. Compute edge images using any two edge detectors (canny, sobel, prewitt, etc.), then use them as input features independently to train an SVM classifier. Compare and analyze your results using metrics like accuracy, f1-score, precision, recall and a confusion matrix. Document the findings and discuss the failure and success of this method.",
+    "topic": [
+      "Face Anti-spoofing",
+      "Classification",
+      "Feature Extraction",
+      "Edge Detection",
+      "Support Vector Machine (SVM)"
+    ],
+    "marks": 4
+  },
+  {
+    "question": "Apply the filters mentioned below on the image attached and analyze their impact. Describe what you found after applying each filter and why certain phenomena are happening. The filters are: Filter 1: [[-1, 0, 1], [-1, 0, 1], [-1, 0, 1]] and Filter 2: [[1, 1, 1], [0, 0, 0], [-1, -1, -1]]. Since the above filters are of dimension $3\\times3$, construct the same filters of dimension $5\\times5$ and do the above experiments.",
+    "topic": [
+      "Image Filtering",
+      "Convolution",
+      "Kernel Design",
+      "Edge Detection"
+    ],
+    "marks": 6
+  },
+  {
+    "question": "As part of a Sobel Edge Detection implementation, write a Python function to apply the Sobel filter to detect edges along the x-direction and y-direction. Combine these to compute the gradient magnitude image.",
+    "topic": [
+      "Edge Detection",
+      "Sobel Operator",
+      "Gradient Magnitude",
+      "Implementation"
+    ],
+    "marks": 2
+  },
+  {
+    "question": "As part of a Sobel Edge Detection implementation, apply your function to an image and display the gradient magnitude image alongside the original. Vary the size of the kernel and document the effects.",
+    "topic": [
+      "Edge Detection",
+      "Sobel Operator",
+      "Gradient Magnitude",
+      "Kernel Size"
+    ],
+    "marks": 1
+  },
+  {
+    "question": "As part of a Sobel Edge Detection implementation, manually implement thresholding on the gradient magnitude to create a binary edge image. Experiment with different thresholds and show the results.",
+    "topic": [
+      "Edge Detection",
+      "Image Thresholding",
+      "Binary Image"
+    ],
+    "marks": 1
+  },
+  {
+    "question": "As part of a Sobel Edge Detection implementation, apply the Sobel edge detector on a noisy image (you may add synthetic noise to an attached clean image). Discuss how noise affects edge detection and the visual quality of the output images.",
+    "topic": [
+      "Edge Detection",
+      "Sobel Operator",
+      "Image Noise",
+      "Algorithm Robustness"
+    ],
+    "marks": 2
+  },
+  {
+    "question": "For Laplacian of Gaussian Edge Detection, implement Gaussian smoothing from scratch. Apply your Gaussian filter to smooth an image before edge detection.",
+    "topic": [
+      "Image Filtering",
+      "Gaussian Smoothing",
+      "Image Denoising",
+      "Implementation"
+    ],
+    "marks": 2
+  },
+  {
+    "question": "For Laplacian of Gaussian Edge Detection, develop the Laplacian filter and apply it to a smoothed image to detect edges via zero-crossings. Describe how you detect zero-crossings in your implementation.",
+    "topic": [
+      "Edge Detection",
+      "Laplacian of Gaussian (LoG)",
+      "Laplacian Operator",
+      "Zero-crossing Detection"
+    ],
+    "marks": 2
+  },
+  {
+    "question": "For Laplacian of Gaussian Edge Detection, display the edges detected from a smoothed image alongside the edges detected from the non-smoothed image. Discuss the differences and the impact of noise.",
+    "topic": [
+      "Edge Detection",
+      "Laplacian of Gaussian (LoG)",
+      "Image Noise",
+      "Algorithm Evaluation"
+    ],
+    "marks": 2
+  },
+  {
+    "question": "Using recent advancements in generative AI and computer vision technologies, create a simulated debate video featuring two prominent historical or contemporary figures. The debate should center around a critical and timely issue, such as climate change, technological ethics, international relations, or social justice. Additionally, consider the ethical implications and technical challenges of creating realistic AI-generated representations of real individuals.",
+    "topic": [
+      "Generative AI",
+      "Deepfakes",
+      "Video Synthesis",
+      "AI Ethics"
+    ],
+    "marks": 5
+  },
+  {
+    "question": "Explore the various open-source toolboxes and applications used in the field of computer vision and come up with some interesting applications or toolboxes related to the Computer Vision field (Inpainting, Pose Estimation, DeepFakes (Image, Audio or Video), Adversarial Example Generation, Style Transfer). Select any toolboxes or applications and use them to test their effectiveness in solving the specific problem you are addressing, and discuss their core functionalities, advantages, and real-world applications.",
+    "topic": [
+      "Computer Vision Tools",
+      "Image Inpainting",
+      "Pose Estimation",
+      "Deepfakes",
+      "Adversarial Attacks",
+      "Style Transfer"
+    ],
+    "marks": 5
+  },
+  {
+    "question": "Apply the SHIFT algorithm on the attached image of Albert Einstein and analyze its impact. Describe what you found after applying the filter and why certain phenomena occur.",
+    "topic": [
+      "Feature Detection",
+      "SIFT",
+      "Keypoint Detection",
+      "Feature Descriptors"
+    ],
+    "marks": 2
+  },
+  {
+    "question": "Apply the Bag of Words model on the attached image of Albert Einstein and analyze its impact. Describe what you found after applying the filter and why certain phenomena occur.",
+    "topic": [
+      "Image Classification",
+      "Bag of Visual Words (BoVW)",
+      "Image Representation"
+    ],
+    "marks": 2
+  },
+  {
+    "question": "Apply the HOG (Histogram of Oriented Gradients) feature descriptor on the attached image of Albert Einstein and analyze its impact. Describe what you found after applying the filter and why certain phenomena occur.",
+    "topic": [
+      "Feature Description",
+      "Histogram of Oriented Gradients (HOG)",
+      "Object Detection"
+    ],
+    "marks": 2
+  },
+  {
+    "question": "Imagine you're monitoring pedestrian movement at a crosswalk. Your task is to track the direction and speed of pedestrians in a video using optical flow analysis. Use OpenCV's built-in video vtest.avi, which simulates real-world pedestrian movement. Using the Lucas-Kanade method, track specific points in the video to capture the movement of pedestrians. Visualize the direction of movement using arrows to indicate the flow direction at each point. Provide a brief summary: What patterns do you observe in pedestrian movement? Are there any areas where pedestrians tend to cluster or move faster?",
+    "topic": [
+      "Video Analysis",
+      "Optical Flow",
+      "Lucas-Kanade Method",
+      "Motion Tracking"
+    ],
+    "marks": 6
+  },
+  {
+    "question": "Write a Python program to apply three different 2D transformations (Euclidean, Affine, and Projective) to an input image. For each transformation, you must manually define the transformation matrix. Display the original and all three transformed images, and briefly describe the geometric properties that are preserved by each transformation.",
+    "topic": [
+      "Projective Geometry",
+      "Image Transformations",
+      "Linear Algebra",
+      "Camera Geometry"
+    ],
+    "marks": 5
+  },
+  {
+    "question": "Implement the Hough Transform from scratch to detect straight lines in a binary edge-detected image. Your implementation should include parameter space (Hough space) accumulation and visualization. Finally, draw the detected lines over the original image. Discuss the effect of the accumulator resolution on the detection results.",
+    "topic": [
+      "Hough Transform",
+      "Edge Detection",
+      "Feature Extraction",
+      "Image Processing"
+    ],
+    "marks": 7
+  },
+  {
+    "question": "Implement a basic image segmentation algorithm using the region-growing method. Your function should take a seed point as input. Describe your criteria for merging neighboring pixels into the region. Test your implementation on an image with distinct objects and visualize the segmented region.",
+    "topic": [
+      "Image Segmentation",
+      "Digital Image Processing",
+      "Pixel Operations"
+    ],
+    "marks": 6
+  },
+  {
+    "question": "Implement the Harris Corner Detector from scratch. Your implementation should include computing the structure tensor (matrix M) for each pixel, calculating the corner response function 'R', and performing non-maximal suppression to identify the final corner points. Visualize the detected corners on a sample image.",
+    "topic": [
+      "Feature Point Detection",
+      "Harris Corner Detector",
+      "Image Gradients",
+      "Feature Extraction"
+    ],
+    "marks": 7
+  },
+  {
+    "question": "Extract both HOG and LBP features from a dataset of images containing two distinct classes (e.g., faces and cars). Train a separate Support Vector Machine (SVM) classifier for each feature type. Compare the classification performance of the two models using accuracy and a confusion matrix. Discuss why one feature might be more effective than the other for your chosen dataset.",
+    "topic": [
+      "HOG",
+      "LBP",
+      "Feature Description",
+      "Object Recognition",
+      "SVMs",
+      "Classification"
+    ],
+    "marks": 7
+  },
+  {
+    "question": "Explain the three key components of the Viola-Jones object detection framework: Integral Image, Haar-like features, and the Cascade of Classifiers. Describe how these components work together to achieve fast and accurate real-time object detection.",
+    "topic": [
+      "Object Detection",
+      "Viola-Jones",
+      "Haar-like Features",
+      "Integral Image",
+      "Adaboost"
+    ],
+    "marks": 4
+  },
+  {
+    "question": "Build and train a simple Convolutional Neural Network (CNN) for an image classification task using a standard dataset like MNIST or CIFAR-10. Your report should detail your network architecture (layers, activation functions), the training process (optimizer, loss function), and the final accuracy achieved on the test set.",
+    "topic": [
+      "Convolutional Neural Networks",
+      "Deep Learning",
+      "Image Classification",
+      "Machine Learning"
+    ],
+    "marks": 7
+  },
+  {
+    "question": "Given two consecutive frames from a video, estimate the motion between them by implementing a basic block-matching algorithm for optical flow. For a specific block in the first frame, find the best-matching block in the second frame within a search window. Visualize the resulting motion vector for that block.",
+    "topic": [
+      "Optical Flow",
+      "Motion Estimation",
+      "Video Analysis"
+    ],
+    "marks": 6
+  },
+  {
+    "question": "Given a set of 8 or more corresponding points between two images, write a program to compute the Fundamental Matrix. Use the computed matrix to draw the epipolar line in the second image for a user-selected point in the first image. Briefly explain the geometric meaning of the epipolar constraint.",
+    "topic": [
+      "Epipolar Geometry",
+      "Fundamental Matrix",
+      "Stereo Vision",
+      "3D Reconstruction"
+    ],
+    "marks": 7
+  },
+  {
+    "question": "Implement the RANSAC (Random Sample Consensus) algorithm from scratch to robustly fit a line to a 2D dataset containing a significant number of outliers. Visualize the final fitted line along with the inliers and outliers.",
+    "topic": [
+      "Robust Estimation",
+      "RANSAC",
+      "Model Fitting",
+      "Epipolar Geometry"
+    ],
+    "marks": 6
+  },
+  {
+    "question": "Write a program to create a simple panorama by stitching two overlapping images. The steps should include: 1) Detecting and matching feature points (you may use a library for this part). 2) Computing the Homography matrix using the matched points. 3) Warping one image onto the other using the computed homography and blending them.",
+    "topic": [
+      "Homography",
+      "Panorama Creation",
+      "Image Stitching",
+      "Feature Matching",
+      "Image Warping"
+    ],
+    "marks": 7
+  },
+  {
+    "question": "Explain the physical meaning of a camera's intrinsic and extrinsic parameter matrices. What specific geometric properties of the camera and its position does each matrix represent?",
+    "topic": [
+      "Camera Calibration",
+      "Camera Geometry",
+      "Projective Geometry"
+    ],
+    "marks": 3
+  },
+  {
+    "question": "Implement histogram equalization from scratch for a grayscale image. Display the image and its histogram both before and after equalization. Discuss the resulting changes in image contrast.",
+    "topic": [
+      "Digital Image Processing",
+      "Image Enhancement",
+      "Image Histogram"
+    ],
+    "marks": 6
+  },
+  {
+    "question": "Compare and contrast the Sobel, Prewitt, and Laplacian edge detection operators. Discuss their sensitivity to noise and their ability to detect edge direction.",
+    "topic": [
+      "Edge Detection",
+      "Image Gradients",
+      "Laplacian Operator",
+      "Image Filtering"
+    ],
+    "marks": 4
+  },
+  {
+    "question": "What is the primary motivation behind using a 'Bag of Words' model for image classification? Describe the four main steps: feature extraction, vocabulary creation, image quantization, and classification.",
+    "topic": [
+      "Bag of Words",
+      "Object Recognition",
+      "Feature Description",
+      "Image Classification"
+    ],
+    "marks": 5
+  },
+  {
+    "question": "Explain the role of the 'cascade of classifiers' in the Viola-Jones object detection framework. How does this architecture enable high-speed object detection?",
+    "topic": [
+      "Object Detection",
+      "Viola-Jones",
+      "Adaboost",
+      "Classification"
+    ],
+    "marks": 4
+  },
+  {
+    "question": "Describe the core difference between a convolutional layer and a fully connected layer in a neural network. Why are convolutional layers particularly effective for image data?",
+    "topic": [
+      "Convolutional Neural Networks",
+      "Deep Learning",
+      "Image Classification"
+    ],
+    "marks": 3
+  },
+  {
+    "question": "What is the 'brightness constancy assumption' and why is it a fundamental principle for many optical flow algorithms? Name one situation where this assumption would likely fail.",
+    "topic": [
+      "Optical Flow",
+      "Motion Estimation",
+      "Video Analysis"
+    ],
+    "marks": 3
+  },
+  {
+    "question": "Explain the geometric difference between the Fundamental Matrix (F) and the Essential Matrix (E). What additional information is required to derive E from F?",
+    "topic": [
+      "Epipolar Geometry",
+      "Fundamental Matrix",
+      "Essential Matrix",
+      "Stereo Vision"
+    ],
+    "marks": 4
+  },
+  {
+    "question": "Implement a median filter from scratch and apply it to an image corrupted with salt-and-pepper noise. Compare its performance visually with a standard averaging (mean) filter on the same noisy image.",
+    "topic": [
+      "Digital Image Processing",
+      "Image Denoising",
+      "Image Filtering"
+    ],
+    "marks": 6
+  },
+  {
+    "question": "Write a program that uses the Hough Transform to detect circles in an image. Your function should allow for specifying a range of radii to search for. Visualize the detected circles on the original image.",
+    "topic": [
+      "Hough Transform",
+      "Feature Extraction",
+      "Shape Detection"
+    ],
+    "marks": 7
+  },
+  {
+    "question": "Explain the concept of scale-invariance in the SIFT (Scale-Invariant Feature Transform) algorithm. How is the Difference of Gaussians (DoG) pyramid used to achieve this property?",
+    "topic": [
+      "SIFT",
+      "Feature Point Detection",
+      "Scale-Space"
+    ],
+    "marks": 5
+  },
+  {
+    "question": "Train a simple SVM classifier on the raw pixel values of two different classes from the MNIST dataset (e.g., digits '3' and '8'). Evaluate its performance and discuss the limitations of using raw pixels as features.",
+    "topic": [
+      "Object Recognition",
+      "SVMs",
+      "Classification",
+      "Raw Pixel Features"
+    ],
+    "marks": 5
+  },
+  {
+    "question": "What is 'transfer learning'? Describe a scenario where you would use a pre-trained CNN like VGG16 or ResNet for a custom image classification task with a small dataset.",
+    "topic": [
+      "Convolutional Neural Networks",
+      "Deep Learning",
+      "Transfer Learning"
+    ],
+    "marks": 4
+  },
+  {
+    "question": "What are 'good features to track' according to the Shi-Tomasi criterion used in the KLT tracker? Implement the part of the algorithm that identifies these features in an image.",
+    "topic": [
+      "KLT based object tracking",
+      "Feature Point Detection",
+      "Harris Corner Detector"
+    ],
+    "marks": 6
+  },
+  {
+    "question": "Given a rectified stereo image pair, write a function to compute and visualize the disparity map. Use a simple Sum of Squared Differences (SSD) block matching approach.",
+    "topic": [
+      "Stereo Reconstruction",
+      "Stereo Vision",
+      "Disparity Map"
+    ],
+    "marks": 7
+  },
+  {
+    "question": "What is the purpose of Bundle Adjustment in 3D reconstruction pipelines like Structure from Motion (SfM)? What quantities does it simultaneously optimize?",
+    "topic": [
+      "Bundle Adjustment",
+      "SfM",
+      "3D Reconstruction",
+      "Optimization"
+    ],
+    "marks": 5
+  },
+  {
+    "question": "Implement K-Means clustering from scratch to segment an image based on color. The user should be able to specify the number of clusters (K). Display the final segmented image.",
+    "topic": [
+      "Image Segmentation",
+      "Clustering",
+      "K-Means",
+      "Color Spaces"
+    ],
+    "marks": 7
+  },
+  {
+    "question": "Implement the non-maximum suppression step of the Canny edge detector. Your function should take a gradient magnitude image and a gradient orientation image as input and produce a thinned edge image.",
+    "topic": [
+      "Edge Detection",
+      "Canny Edge Detector",
+      "Non-maximum Suppression"
+    ],
+    "marks": 6
+  },
+  {
+    "question": "Explain the concept of a 'visual word' in the Bag of Words model. How is a large set of feature descriptors (like SIFT) clustered to form a 'visual vocabulary'?",
+    "topic": [
+      "Bag of Words",
+      "Feature Description",
+      "Clustering"
+    ],
+    "marks": 4
+  },
+  {
+    "question": "What is a 'sliding window' approach in object detection? Discuss its main advantages and disadvantages, particularly concerning computational cost and scale.",
+    "topic": [
+      "Object Detection",
+      "Sliding Window",
+      "Algorithm"
+    ],
+    "marks": 3
+  },
+  {
+    "question": "Describe the function of a pooling layer (e.g., Max Pooling) in a CNN. What are its two primary benefits for the network?",
+    "topic": [
+      "Convolutional Neural Networks",
+      "Deep Learning",
+      "Pooling Layers"
+    ],
+    "marks": 2
+  },
+  {
+    "question": "Given a set of 2D points with outliers, explain why a standard Least Squares fit would produce a poor result compared to a robust method like RANSAC.",
+    "topic": [
+      "Robust Estimation",
+      "RANSAC",
+      "Least Squares",
+      "Model Fitting"
+    ],
+    "marks": 3
+  },
+  {
+    "question": "Write a program to compute the homography between two images given a set of 4 corresponding points. Use this homography to warp a quadrilateral region in the first image to its corresponding region in the second.",
+    "topic": [
+      "Homography",
+      "Projective Geometry",
+      "Image Warping"
+    ],
+    "marks": 6
+  },
+  {
+    "question": "Take a photo of a checkerboard pattern from an angle. Write a program that finds the checkerboard corners and uses them to compute a homography that rectifies the image, making it appear as if it were taken from a direct frontal view.",
+    "topic": [
+      "Camera Calibration",
+      "Homography",
+      "Image Rectification",
+      "Feature Point Detection"
+    ],
+    "marks": 7
+  },
+  {
+    "question": "Apply the Fourier Transform to an image. Create a high-pass and a low-pass filter in the frequency domain. Apply these filters, perform the inverse transform, and display the results. Explain the effect of each filter.",
+    "topic": [
+      "Digital Image Processing",
+      "Fourier Transform",
+      "Frequency Domain",
+      "Image Filtering"
+    ],
+    "marks": 6
+  },
+  {
+    "question": "Describe the main difference between feature-based and appearance-based object tracking methods. Give an example of an algorithm for each category.",
+    "topic": [
+      "Object Tracking",
+      "KLT based object tracking",
+      "Feature Detection"
+    ],
+    "marks": 4
+  },
+  {
+    "question": "What are Space-Time Interest Points (STIPs)? How do they extend 2D interest point detectors like Harris to the video domain for action recognition?",
+    "topic": [
+      "STIP",
+      "Feature Point Detection",
+      "Action Recognition",
+      "Video Analysis"
+    ],
+    "marks": 5
+  },
+  {
+    "question": "Explain the concept of 'data augmentation' in the context of training deep neural networks. List and describe three common augmentation techniques for image data.",
+    "topic": [
+      "Convolutional Neural Networks",
+      "Deep Learning",
+      "Data Augmentation"
+    ],
+    "marks": 3
+  },
+  {
+    "question": "What is the core idea behind Structure from Motion (SfM)? Describe the inputs and the expected outputs of a typical SfM pipeline.",
+    "topic": [
+      "SfM",
+      "3D Reconstruction",
+      "Epipolar Geometry",
+      "Bundle Adjustment"
+    ],
+    "marks": 5
+  },
+  {
+    "question": "Write a program to compute and display the epipolar lines on a pair of stereo images. Your program should take the Fundamental Matrix and a point in one image as input and draw the corresponding epipolar line in the other image.",
+    "topic": [
+      "Epipolar Geometry",
+      "Fundamental Matrix",
+      "Stereo Vision"
+    ],
+    "marks": 6
+  },
+  {
+    "question": "How are gradient orientation and magnitude used in the construction of a HOG descriptor? Implement a function that calculates the gradient orientation histogram for a single 8x8 pixel cell.",
+    "topic": [
+      "HOG",
+      "Feature Description",
+      "Image Gradients"
+    ],
+    "marks": 7
+  },
+  {
+    "question": "What is VLAD (Vector of Locally Aggregated Descriptors)? How does it improve upon the standard Bag of Words model for image representation?",
+    "topic": [
+      "VLAD",
+      "Feature Description",
+      "Bag of Words",
+      "Object Recognition"
+    ],
+    "marks": 5
+  },
+  {
+    "question": "What is an 'image pyramid'? Explain how image pyramids are used to achieve scale-invariant object detection in methods that don't use scale-invariant features.",
+    "topic": [
+      "Object Detection",
+      "Image Pyramid",
+      "Scale-Space"
+    ],
+    "marks": 4
+  },
+  {
+    "question": "Describe the architecture of a simple autoencoder for an image denoising task. How does the network learn to reconstruct a clean image from a noisy input?",
+    "topic": [
+      "Convolutional Neural Networks",
+      "Deep Learning",
+      "Autoencoder",
+      "Image Denoising"
+    ],
+    "marks": 5
+  },
+  {
+    "question": "Why is it necessary to 'normalize' blocks of HOG descriptors? What problem does this normalization step solve?",
+    "topic": [
+      "HOG",
+      "Feature Description",
+      "Normalization"
+    ],
+    "marks": 3
+  },
+  {
+    "question": "Explain the difference between a sparse and a dense optical flow algorithm. Give an example of each.",
+    "topic": [
+      "Optical Flow",
+      "Motion Estimation",
+      "KLT based object tracking"
+    ],
+    "marks": 3
+  },
+  {
+    "question": "What does it mean to 'rectify' a stereo image pair? Why is this process beneficial for stereo matching algorithms?",
+    "topic": [
+      "Stereo Reconstruction",
+      "Image Rectification",
+      "Epipolar Geometry"
+    ],
+    "marks": 4
+  },
+  {
+    "question": "Implement the basic Local Binary Patterns (LBP) operator from scratch. Your function should take a grayscale image and return the LBP feature image.",
+    "topic": [
+      "LBP",
+      "Feature Description",
+      "Texture Analysis"
+    ],
+    "marks": 6
+  },
+  {
+    "question": "Define 'precision' and 'recall' in the context of evaluating an object detector. Explain the trade-off between them.",
+    "topic": [
+      "Object Detection",
+      "Model Evaluation",
+      "Classification"
+    ],
+    "marks": 3
+  },
+  {
+    "question": "What is the 'vanishing gradient problem' in deep neural networks? Briefly describe one technique used to mitigate it.",
+    "topic": [
+      "Convolutional Neural Networks",
+      "Deep Learning",
+      "Training"
+    ],
+    "marks": 4
+  },
+  {
+    "question": "What is the purpose of the objective function in a Least Squares problem? Provide the mathematical formula for a simple linear least squares objective function.",
+    "topic": [
+      "Least Squares",
+      "Optimization",
+      "Linear Algebra"
+    ],
+    "marks": 3
+  },
+  {
+    "question": "Compare the Euclidean, Similarity, Affine, and Projective 2D transformations in terms of their degrees of freedom and the geometric invariants they preserve.",
+    "topic": [
+      "Projective Geometry",
+      "Image Transformations",
+      "Linear Algebra"
+    ],
+    "marks": 5
+  },
+  {
+    "question": "Describe the role of the camera projection matrix (P). What are its dimensions, and how does it map 3D world points to 2D image coordinates?",
+    "topic": [
+      "Camera Geometry",
+      "Projective Geometry",
+      "3D Vision"
+    ],
+    "marks": 4
+  },
+  {
+    "question": "Why is the Harris corner response sensitive to both corners and edges if only the eigenvalues of the structure tensor are used? How does the Harris 'R' score function solve this?",
+    "topic": [
+      "Harris Corner Detector",
+      "Feature Point Detection",
+      "Linear Algebra"
+    ],
+    "marks": 5
+  },
+  {
+    "question": "Explain the concept of 'receptive field' for a neuron in a Convolutional Neural Network. How does it change as you go deeper into the network?",
+    "topic": [
+      "Convolutional Neural Networks",
+      "Deep Learning",
+      "Architecture"
+    ],
+    "marks": 3
+  },
+  {
+    "question": "What is the epipole? Explain its geometric significance in a stereo camera setup and how it relates to the Fundamental Matrix.",
+    "topic": [
+      "Epipolar Geometry",
+      "Fundamental Matrix",
+      "Stereo Vision",
+      "Epipole"
+    ],
+    "marks": 4
+  },
+  {
+    "question": "Implement a simple color constancy algorithm, such as the Grey World algorithm, to correct the color cast of an image.",
+    "topic": [
+      "Digital Image Processing",
+      "Color Correction",
+      "Color Spaces"
+    ],
+    "marks": 5
+  },
+  {
+    "question": "Describe how you would set up an experiment to find the optimal parameters (e.g., inlier threshold, number of iterations) for a RANSAC-based line fitting algorithm.",
+    "topic": [
+      "RANSAC",
+      "Robust Estimation",
+      "Model Evaluation"
+    ],
+    "marks": 4
+  },
+  {
+    "question": "What is the main challenge in feature matching that panorama creation algorithms must solve? Why can simple template matching fail?",
+    "topic": [
+      "Panorama Creation",
+      "Feature Matching",
+      "SIFT"
+    ],
+    "marks": 3
+  },
+  {
+    "question": "Name and describe one topic that represents 'Recent Progress in Computer Vision' that was not covered in the main course outline (e.g., Generative Adversarial Networks, Transformers for Vision, Neural Radiance Fields).",
+    "topic": [
+      "Recent Progress in Computer Vision",
+      "Generative Models",
+      "Deep Learning"
+    ],
+    "marks": 2
+  },
+  {
+    "question": "Write a Python function that implements convolution from scratch. Your function should take a grayscale image and a kernel (e.g., a 3x3 sharpening filter) as input and return the convolved image. Do not use libraries like OpenCV's `filter2D` or SciPy's `convolve2d`.",
+    "topic": [
+      "Digital Image Processing",
+      "Convolution",
+      "Image Filtering",
+      "Implementation"
+    ],
+    "marks": 7
+  },
+  {
+    "question": "Implement the FAST (Features from Accelerated Segment Test) corner detector. Your function should take a grayscale image and a threshold value, and return the coordinates of the detected corner points.",
+    "topic": [
+      "Feature Point Detection",
+      "FAST",
+      "Corner Detection",
+      "Implementation"
+    ],
+    "marks": 7
+  },
+  {
+    "question": "Write a program to perform color-based segmentation using K-Means clustering on the pixel values of an RGB image. Your code should cluster the pixels into K groups and display the resulting segmented image, where each pixel is colored with the mean of its assigned cluster.",
+    "topic": [
+      "Image Segmentation",
+      "K-Means",
+      "Clustering",
+      "Programming"
+    ],
+    "marks": 6
+  },
+  {
+    "question": "Develop a function that applies a homography transformation to an image from scratch. The function should take an image and a 3x3 homography matrix as input. Implement inverse warping with bilinear interpolation to calculate the pixel values in the output image.",
+    "topic": [
+      "Homography",
+      "Image Warping",
+      "Projective Geometry",
+      "Implementation"
+    ],
+    "marks": 7
+  },
+  {
+    "question": "Code a function that converts an image from the RGB color space to the HSV color space. Implement the conversion formulas manually for each pixel. Do not use built-in library functions for the conversion.",
+    "topic": [
+      "Digital Image Processing",
+      "Color Spaces",
+      "Programming"
+    ],
+    "marks": 5
+  },
+  {
+    "question": "Implement the 8-point algorithm to compute the Fundamental Matrix from a set of 8 or more corresponding points between two images. Your implementation should involve setting up the linear system and solving for the matrix elements.",
+    "topic": [
+      "Epipolar Geometry",
+      "Fundamental Matrix",
+      "3D Vision",
+      "Implementation"
+    ],
+    "marks": 7
+  },
+  {
+    "question": "Write a script that performs descriptor matching between two sets of feature descriptors (e.g., SIFT or ORB). Implement the brute-force matching with a ratio test (as proposed by Lowe) to filter for high-quality matches.",
+    "topic": [
+      "Feature Matching",
+      "SIFT",
+      "Object Recognition",
+      "Programming"
+    ],
+    "marks": 6
+  },
+  {
+    "question": "Develop a program to perform adaptive thresholding on a grayscale image. Implement the logic where the threshold for a pixel is the mean of its local neighborhood minus a constant C. Do not use the `cv2.adaptiveThreshold` function.",
+    "topic": [
+      "Image Thresholding",
+      "Digital Image Processing",
+      "Implementation"
+    ],
+    "marks": 6
+  },
+  {
+    "question": "Implement a simple Kalman Filter to track a moving object in 2D. Your code should predict the object's next state based on a constant velocity model and update the prediction using noisy measurements of its position.",
+    "topic": [
+      "Object Tracking",
+      "Kalman Filter",
+      "State Estimation",
+      "Programming"
+    ],
+    "marks": 7
+  },
+  {
+    "question": "Write a function that undistorts an image given the camera's intrinsic matrix and distortion coefficients (k1, k2, p1, p2). Implement the mathematical formulas for radial and tangential distortion correction for each pixel.",
+    "topic": [
+      "Camera Calibration",
+      "Image Rectification",
+      "Camera Geometry",
+      "Implementation"
+    ],
+    "marks": 7
+  },
+  {
+    "question": "Code a function that computes a disparity map from a rectified stereo image pair using block matching. Your function should implement the Sum of Absolute Differences (SAD) as the matching cost.",
+    "topic": [
+      "Stereo Vision",
+      "Disparity Map",
+      "3D Reconstruction",
+      "Implementation"
+    ],
+    "marks": 7
+  },
+  {
+    "question": "Write a program that takes an image and applies gamma correction. The function should accept the image and a gamma value (γ). Display the output for γ < 1 and γ > 1 and describe the effect.",
+    "topic": [
+      "Digital Image Processing",
+      "Image Enhancement",
+      "Programming"
+    ],
+    "marks": 4
+  },
+  {
+    "question": "Implement a function to triangulate a 3D point's position given its 2D coordinates in two different images and the corresponding camera projection matrices. Use the Direct Linear Transform (DLT) method.",
+    "topic": [
+      "3D Reconstruction",
+      "Triangulation",
+      "Epipolar Geometry",
+      "Implementation"
+    ],
+    "marks": 7
+  },
+  {
+    "question": "Write a script to build a visual vocabulary for a Bag of Words model. Your code should take a large number of feature descriptors (e.g., SIFT) from a training dataset and use K-Means clustering to find the cluster centers, which will serve as the vocabulary.",
+    "topic": [
+      "Bag of Words",
+      "Feature Description",
+      "K-Means",
+      "Programming"
+    ],
+    "marks": 6
+  },
+  {
+    "question": "Implement a simple mean-shift tracking algorithm. Your program should initialize a target based on a color histogram in a specific region of the first frame of a video and track that region in subsequent frames.",
+    "topic": [
+      "Object Tracking",
+      "Mean-Shift",
+      "Video Analysis",
+      "Implementation"
+    ],
+    "marks": 7
+  },
+  {
+    "question": "Code a function that calculates the integral image (Summed-Area Table) for a given grayscale image. Write a second function that uses this integral image to rapidly calculate the sum of pixel values within any rectangular region.",
+    "topic": [
+      "Integral Image",
+      "Viola-Jones",
+      "Feature Extraction",
+      "Programming"
+    ],
+    "marks": 5
+  },
+  {
+    "question": "Write a script that applies Principal Component Analysis (PCA) from scratch on a set of face images (e.g., Eigenfaces). Your implementation should include calculating the covariance matrix, finding eigenvectors, and projecting the faces onto a lower-dimensional subspace.",
+    "topic": [
+      "Dimensionality Reduction",
+      "PCA",
+      "Eigenfaces",
+      "Implementation"
+    ],
+    "marks": 7
+  },
+  {
+    "question": "Develop a function that generates a Gaussian pyramid from an input image. The function should take the image and the number of levels for the pyramid as input and return a list of downsampled images.",
+    "topic": [
+      "Image Pyramid",
+      "Scale-Space",
+      "Digital Image Processing",
+      "Programming"
+    ],
+    "marks": 5
+  },
+  {
+    "question": "Write a Python class for a simple Support Vector Machine (SVM) classifier. Implement the training logic using gradient descent to learn the separating hyperplane for a 2D dataset. Do not use libraries like scikit-learn for the core SVM implementation.",
+    "topic": [
+      "SVMs",
+      "Classification",
+      "Machine Learning",
+      "Implementation"
+    ],
+    "marks": 7
+  },
+  {
+    "question": "Code a function that performs a perspective transform on an image. The user should specify the 4 corners of a quadrilateral in the source image and the 4 corners of the target rectangle. Your code should compute the perspective transform matrix and apply it to the image.",
+    "topic": [
+      "Projective Geometry",
+      "Image Transformations",
+      "Image Warping",
+      "Programming"
+    ],
+    "marks": 6
+  }
+]
