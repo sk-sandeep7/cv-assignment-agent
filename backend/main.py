@@ -169,8 +169,8 @@ app.add_middleware(
     SessionMiddleware, 
     secret_key=SECRET_KEY, 
     max_age=SESSION_MAX_AGE,
-    same_site='lax',  # Allow cross-site cookies for OAuth
-    https_only=False  # Railway handles HTTPS termination
+    same_site='none',  # Allow cross-site cookies for OAuth between domains
+    https_only=True   # Secure cookies required for cross-site requests
 )
 
 # Allow CORS for frontend
@@ -597,6 +597,11 @@ async def api_auth_google_logout(request: Request):
 @app.get("/api/check_auth")
 async def api_check_auth(request: Request):
     """Checks if a user's session and credentials exist and haven't expired."""
+    print(f"🔐 Auth check - Session keys: {list(request.session.keys())}")
+    print(f"🔐 Auth check - Has credentials: {'credentials' in request.session}")
+    print(f"🔐 Auth check - Session ID: {request.session.get('_session_id', 'No ID')}")
+    print(f"🔐 Auth check - Request cookies: {request.cookies}")
+    
     if 'credentials' in request.session:
         credentials_dict = request.session['credentials']
         
@@ -611,7 +616,10 @@ async def api_check_auth(request: Request):
                 request.session.clear()
                 return JSONResponse({'logged_in': False, 'message': 'Session expired after 7 days'})
         
+        print(f"🔐 Auth check - User is authenticated")
         return JSONResponse({'logged_in': True})
+    
+    print(f"🔐 Auth check - User is NOT authenticated")
     return JSONResponse({'logged_in': False})
 
 @app.get("/api/classroom/courses")
