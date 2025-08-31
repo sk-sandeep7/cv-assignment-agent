@@ -1,6 +1,7 @@
 import os
 import json
 import io
+from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 from fastapi import FastAPI, Request, Depends, HTTPException, status
 from fastapi.responses import RedirectResponse, JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -541,9 +542,28 @@ async def api_auth_google_callback(request: Request):
         flow.redirect_uri = redirect_uri
         print(f"🔑 Callback redirect URI: {redirect_uri}")
 
-        # Replace the signed state with original state in the URL for token exchange
-        authorization_response = str(request.url).replace(f"state={signed_state_from_query}", f"state={original_state}")
-        print(f"🔑 Modified auth response URL for token exchange")
+        # Create a clean authorization response URL with the original state
+        # Parse the current URL and replace the state parameter
+        from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+        
+        parsed_url = urlparse(str(request.url))
+        query_params = parse_qs(parsed_url.query)
+        
+        # Replace the signed state with the original state
+        query_params['state'] = [original_state]
+        
+        # Reconstruct the URL with the original state
+        new_query = urlencode(query_params, doseq=True)
+        authorization_response = urlunparse((
+            parsed_url.scheme,
+            parsed_url.netloc,
+            parsed_url.path,
+            parsed_url.params,
+            new_query,
+            parsed_url.fragment
+        ))
+        
+        print(f"🔑 Reconstructed auth response URL with original state for token exchange")
         
         flow.fetch_token(authorization_response=authorization_response)
         
