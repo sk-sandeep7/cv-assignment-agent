@@ -11,20 +11,71 @@ import uuid
 import datetime
 from typing import List, Dict, Any, Optional
 
-import google.oauth2.credentials
-import google_auth_oauthlib.flow
-from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
-from google.auth.transport.requests import Request as GoogleRequest
+# Add startup debugging
+print("🚀 Starting application...")
+print(f"Python version: {os.sys.version}")
+print(f"Current working directory: {os.getcwd()}")
+print(f"PORT environment variable: {os.getenv('PORT', 'Not set')}")
 
-from generate_openai import generate_questions_with_openai, generate_custom_question_with_openai
-from evaluation_openai import generate_evaluation_rubrics_with_openai
-from grade_openai import evaluate_submission, assign_grade_to_classroom
+# Check for client_secret.json file
+if os.path.exists('client_secret.json'):
+    print("✅ client_secret.json file found")
+    try:
+        with open('client_secret.json', 'r') as f:
+            secret_data = json.load(f)
+            print(f"✅ client_secret.json is valid JSON with keys: {list(secret_data.keys())}")
+    except Exception as e:
+        print(f"❌ Error reading client_secret.json: {e}")
+        raise
+else:
+    print("❌ client_secret.json file NOT found")
+    # Check if environment variables are set
+    client_secret_env = os.getenv('CLIENT_SECRET_JSON')
+    if client_secret_env:
+        print("✅ CLIENT_SECRET_JSON environment variable found")
+    else:
+        print("❌ CLIENT_SECRET_JSON environment variable NOT found")
+        # Check individual components
+        client_id = os.getenv('GOOGLE_CLIENT_ID')
+        client_secret = os.getenv('GOOGLE_CLIENT_SECRET')
+        print(f"GOOGLE_CLIENT_ID: {'SET' if client_id else 'NOT SET'}")
+        print(f"GOOGLE_CLIENT_SECRET: {'SET' if client_secret else 'NOT SET'}")
+
+print(f"Available files in current directory: {os.listdir('.')}")
+
+try:
+    import google.oauth2.credentials
+    import google_auth_oauthlib.flow
+    from googleapiclient.discovery import build
+    from googleapiclient.errors import HttpError
+    from google.auth.transport.requests import Request as GoogleRequest
+    print("✅ Google API imports successful")
+except ImportError as e:
+    print(f"❌ Google API import failed: {e}")
+    raise
+
+try:
+    from generate_openai import generate_questions_with_openai, generate_custom_question_with_openai
+    from evaluation_openai import generate_evaluation_rubrics_with_openai
+    from grade_openai import evaluate_submission, assign_grade_to_classroom
+    print("✅ Local module imports successful")
+except ImportError as e:
+    print(f"❌ Local module import failed: {e}")
+    print(f"Available files in current directory: {os.listdir('.')}")
+    raise
 
 # This line is crucial for local development. It allows OAuth to run over HTTP.
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
 app = FastAPI()
+
+# Add startup event handler for debugging
+@app.on_event("startup")
+async def startup_event():
+    print("🎯 FastAPI startup event triggered")
+    print(f"Database file exists: {os.path.exists('assignments.db')}")
+    print(f"Environment PYTHON_PATH: {os.getenv('PYTHONPATH', 'Not set')}")
+    print("✅ Application startup completed successfully")
 
 # A secret key is required for SessionMiddleware to sign the cookies.
 SECRET_KEY = os.urandom(24)
