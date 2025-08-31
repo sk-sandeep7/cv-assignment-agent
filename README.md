@@ -10,7 +10,6 @@ An intelligent question generation and evaluation system built with React fronte
 - **Question Management**: Regenerate individual or all questions
 - **Interactive UI**: Modern React interface with loading states and modals
 - **Fuzzy Topic Matching**: Smart topic matching using difflib
-- **Browser Navigation**: URL-based navigation with back button support
 
 ## 📁 Project Structure
 
