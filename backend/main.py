@@ -34,7 +34,19 @@ app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY, max_age=SESSION_MAX
 
 # Allow CORS for frontend
 # Get allowed origins from environment variable or use localhost for development
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:5174").split(",")
+ALLOWED_ORIGINS_RAW = os.getenv("ALLOWED_ORIGINS", "https://cv-assignment-agent.vercel.app,http://localhost:5173,http://localhost:5174")
+ALLOWED_ORIGINS = [origin.strip() for origin in ALLOWED_ORIGINS_RAW.split(",")]
+
+# Debug logging for CORS configuration
+print("="*50)
+print("🔧 CORS DEBUG INFORMATION")
+print("="*50)
+print(f"Raw ALLOWED_ORIGINS env var: '{ALLOWED_ORIGINS_RAW}'")
+print(f"Parsed ALLOWED_ORIGINS: {ALLOWED_ORIGINS}")
+print(f"Number of allowed origins: {len(ALLOWED_ORIGINS)}")
+for i, origin in enumerate(ALLOWED_ORIGINS):
+    print(f"  [{i}]: '{origin}' (length: {len(origin)})")
+print("="*50)
 
 app.add_middleware(
     CORSMiddleware,
@@ -43,6 +55,38 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add custom middleware for debugging requests
+@app.middleware("http")
+async def debug_requests(request: Request, call_next):
+    # Log incoming request details
+    origin = request.headers.get("origin", "No Origin Header")
+    user_agent = request.headers.get("user-agent", "No User-Agent")[:50]
+    
+    print(f"🌐 Incoming Request:")
+    print(f"   Method: {request.method}")
+    print(f"   URL: {request.url}")
+    print(f"   Origin: '{origin}'")
+    print(f"   User-Agent: {user_agent}...")
+    print(f"   Headers: {dict(request.headers)}")
+    
+    # Check if origin is in allowed list
+    if origin != "No Origin Header":
+        is_allowed = origin in ALLOWED_ORIGINS
+        print(f"   ✅ Origin allowed: {is_allowed}")
+        if not is_allowed:
+            print(f"   ❌ Origin '{origin}' not in allowed list: {ALLOWED_ORIGINS}")
+    
+    response = await call_next(request)
+    
+    # Log response headers
+    print(f"📤 Response Headers:")
+    for header_name, header_value in response.headers.items():
+        if 'access-control' in header_name.lower():
+            print(f"   {header_name}: {header_value}")
+    print("-" * 50)
+    
+    return response
 
 # --- Google API Configuration ---
 CLIENT_SECRETS_FILE = os.getenv("CLIENT_SECRETS_FILE", "client_secret.json")
@@ -224,6 +268,30 @@ async def get_drive_service(request: Request):
 @app.get("/")
 def read_root():
     return {"Hello": "World"}
+
+@app.get("/debug/cors")
+def debug_cors_info(request: Request):
+    """Debug endpoint to check CORS configuration"""
+    origin = request.headers.get("origin", "No Origin Header")
+    return {
+        "message": "CORS Debug Information",
+        "request_origin": origin,
+        "allowed_origins": ALLOWED_ORIGINS,
+        "is_origin_allowed": origin in ALLOWED_ORIGINS if origin != "No Origin Header" else False,
+        "cors_headers_should_be_present": True,
+        "environment_variable": os.getenv("ALLOWED_ORIGINS", "NOT SET"),
+        "total_allowed_origins": len(ALLOWED_ORIGINS)
+    }
+
+@app.options("/api/auth/google/url")
+async def preflight_google_auth():
+    """Handle preflight requests for Google auth endpoint"""
+    return {"message": "Preflight OK"}
+
+@app.options("/debug/cors")
+async def preflight_debug_cors():
+    """Handle preflight requests for debug endpoint"""
+    return {"message": "Preflight OK"}
 
 # --- Google OAuth and Classroom API Routes ---
 
