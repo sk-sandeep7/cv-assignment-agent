@@ -1,73 +1,72 @@
 # Deployment Guide
 
-## Environment Variables Required for Production
+## Railway Deployment (Recommended)
 
-### Backend (.env file)
+### Step 1: Prepare Your Repository
+1. Ensure all changes are committed and pushed to GitHub
+2. Make sure `railway.toml` and `Dockerfile` are in the root directory
+
+### Step 2: Railway Setup
+1. Visit [Railway.app](https://railway.app)
+2. Sign up/Login with your GitHub account
+3. Click "New Project" → "Deploy from GitHub repo"
+4. Select your `cv-assignment-agent` repository
+5. Railway will automatically detect the Dockerfile
+
+### Step 3: Environment Variables
+Set these environment variables in Railway dashboard:
+
 ```
-# Google API Configuration
 GOOGLE_API_KEY=your-google-api-key-here
 AZURE_OPENAI_ENDPOINT=https://your-openai-resource.openai.azure.com/
 OPENAI_API_VERSION=2025-01-01-preview
 AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o
 AZURE_OPENAI_API_KEY=your-azure-openai-api-key-here
-
-# Application Configuration
 ALLOWED_ORIGINS=https://your-frontend-domain.com
 FRONTEND_URL=https://your-frontend-domain.com/home
 DATABASE_PATH=/app/data/assignments.db
 CLIENT_SECRETS_FILE=/app/config/client_secret.json
 ```
 
-### Frontend Environment Variables
+### Step 4: Upload client_secret.json
+1. In Railway dashboard, go to your service
+2. Click on "Settings" → "Variables"
+3. Upload your `client_secret.json` file as a secret
+4. Or manually create the JSON content as an environment variable
+
+### Step 5: Configure Domain & HTTPS
+1. Railway provides a custom domain automatically
+2. Update your Google OAuth settings with the new domain:
+   - **Authorized JavaScript origins**: `https://your-railway-domain.up.railway.app`
+   - **Authorized redirect URIs**: `https://your-railway-domain.up.railway.app/api/auth/google/callback`
+
+### Step 6: Update Frontend Configuration
+Update your frontend's `config.js`:
+```javascript
+const API_BASE_URL = process.env.NODE_ENV === 'production' 
+  ? 'https://your-railway-domain.up.railway.app'  // Your Railway backend URL
+  : 'http://localhost:8000';
 ```
-NODE_ENV=production
+
+## Manual Railway CLI Deployment
+
+### Prerequisites
+```bash
+npm install -g @railway/cli
+railway login
 ```
 
-## Google OAuth Configuration for Production
+### Deploy Commands
+```bash
+# Initialize Railway project
+railway login
+railway link
 
-1. **Update Google Cloud Console**:
-   - Go to Google Cloud Console → APIs & Services → Credentials
-   - Edit your OAuth 2.0 client
-   - Add production domains to:
-     - **Authorized JavaScript origins**: `https://your-frontend-domain.com`
-     - **Authorized redirect URIs**: `https://your-backend-domain.com/api/auth/google/callback`
+# Set environment variables
+railway variables set GOOGLE_API_KEY=your-key-here
+railway variables set AZURE_OPENAI_ENDPOINT=your-endpoint
+# ... (set all other variables)
 
-2. **Update client_secret.json** for production:
-   ```json
-   {
-     "web": {
-       "redirect_uris": ["https://your-backend-domain.com/api/auth/google/callback"],
-       "javascript_origins": ["https://your-frontend-domain.com"]
-     }
-   }
-   ```
-
-## Platform-Specific Deployment Notes
-
-### Render.com
-1. Set environment variables in Render dashboard
-2. Upload `client_secret.json` as a secret file
-3. Ensure database persistence with Render Disks
-
-### Vercel (Frontend)
-1. Set `NODE_ENV=production` in environment variables
-2. Update `config.js` with production backend URL
-
-### Railway
-1. Set environment variables in Railway dashboard
-2. Configure volume mounts for database persistence
-
-### Docker
-1. Use `.env.template` as reference
-2. Mount volumes for database and config files
-3. Ensure proper file permissions
-
-## Security Checklist
-
-- [ ] All hardcoded URLs removed
-- [ ] Environment variables configured
-- [ ] Google OAuth domains updated
-- [ ] API keys rotated (if previously exposed)
-- [ ] Database file path configured for persistence
-- [ ] CORS origins restricted to production domains
-- [ ] Client secret file secured
+# Deploy
+railway up
+```
