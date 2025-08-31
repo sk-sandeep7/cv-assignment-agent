@@ -240,7 +240,7 @@ SCOPES = [
 ]
 API_SERVICE_NAME = 'classroom'
 API_VERSION = 'v1'
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173/home")  # Redirect to home page after login
+FRONTEND_URL = os.getenv("FRONTEND_URL", "https://cv-assignment-agent.vercel.app/home")  # Redirect to home page after login
 
 # SQLite setup - use absolute path for production deployment
 DB_PATH = os.getenv("DATABASE_PATH", "assignments.db")
