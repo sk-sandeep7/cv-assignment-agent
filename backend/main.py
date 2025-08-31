@@ -578,8 +578,15 @@ async def api_auth_google_callback(request: Request):
             'login_timestamp': datetime.datetime.now().isoformat()  # Add login timestamp
         }
         
+        print(f"🔑 Session created - Session keys: {list(request.session.keys())}")
+        print(f"🔑 Session created - Has credentials: {'credentials' in request.session}")
+        print(f"🔑 Session created - Session ID: {request.session.get('_session_id', 'No ID')}")
         print(f"✅ OAuth flow completed successfully")
-        return RedirectResponse(url=FRONTEND_URL)
+        
+        # Create response with explicit cookie settings for debugging
+        response = RedirectResponse(url=FRONTEND_URL)
+        print(f"🔑 Redirect response headers: {dict(response.headers)}")
+        return response
         
     except Exception as e:
         print(f"❌ OAuth callback error: {str(e)}")
