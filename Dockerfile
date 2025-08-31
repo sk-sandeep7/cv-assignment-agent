@@ -21,12 +21,10 @@ COPY start.sh .
 RUN chmod +x start.sh
 
 # Create necessary directories
-RUN mkdir -p /app/data /app/config
+RUN mkdir -p /app/data
 
 # Set environment variables
 ENV PYTHONPATH=/app
-ENV DATABASE_PATH=/app/data/assignments.db
-ENV CLIENT_SECRETS_FILE=/app/config/client_secret.json
 ENV PYTHONUNBUFFERED=1
 
 # Expose port (Railway will set PORT environment variable)
