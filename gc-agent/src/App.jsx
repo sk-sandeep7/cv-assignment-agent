@@ -25,6 +25,36 @@ function App() {
   const [loadingRubricIndex, setLoadingRubricIndex] = useState(null);
   const [questionsToAssign, setQuestionsToAssign] = useState([]);
   const [assignmentTopic, setAssignmentTopic] = useState('');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  // Check authentication status
+  const checkAuthStatus = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/check_auth`, {
+        credentials: 'include'
+      });
+      const data = await response.json();
+      setIsAuthenticated(data.logged_in);
+      setAuthChecked(true);
+      
+      if (!data.logged_in && (location.pathname === '/home' || location.pathname === '/questions' || location.pathname === '/submissions')) {
+        navigate('/login');
+      }
+    } catch (error) {
+      console.error('Auth check failed:', error);
+      setIsAuthenticated(false);
+      setAuthChecked(true);
+      if (location.pathname !== '/login') {
+        navigate('/login');
+      }
+    }
+  };
+
+  // Check auth status on mount and when location changes
+  useEffect(() => {
+    checkAuthStatus();
+  }, [location.pathname]);
 
   const handleLogout = async () => {
     try {
@@ -32,11 +62,14 @@ function App() {
         method: 'POST',
         credentials: 'include'
       });
+      // Reset authentication state
+      setIsAuthenticated(false);
       // Redirect to login page
       navigate('/login');
     } catch (error) {
       console.error('Logout error:', error);
-      // Still redirect to login page even if logout API fails
+      // Still reset state and redirect even if logout API fails
+      setIsAuthenticated(false);
       navigate('/login');
     }
   };
@@ -197,6 +230,7 @@ function App() {
       const response = await fetch(`${API_BASE_URL}/api/store-questions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ questions: assignmentQuestions }),
       });
 
@@ -224,105 +258,132 @@ function App() {
     }
   };
 
+  // Show loading while checking authentication
+  if (!authChecked) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh',
+        backgroundColor: '#FFF9F2' 
+      }}>
+        <div>Checking authentication...</div>
+      </div>
+    );
+  }
+
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/login" element={<Login />} />
       <Route path="/home" element={
-        <div style={{ padding: '0', display: 'flex', backgroundColor: '#FFF9F2' }}>
-          <Sidebar onLogout={handleLogout} />
-          <div style={{ marginLeft: '256px', width: '100%' }}>
-            <MainContent
-              currentStep={currentStep}
-              onGenerate={handleGenerateAssignments}
-              onQuestionSelect={handleQuestionSelect}
-              assignmentQuestions={assignmentQuestions}
-              evaluationCriteria={evaluationCriteria}
-              onGenerateAgain={handleGenerateAgain}
-              onCustomInput={handleCustomInput}
-              onGenerateRubrics={handleGenerateRubrics}
-              onViewRubrics={handleViewRubrics}
-              isLoading={isLoading}
-              loadingRubricIndex={loadingRubricIndex}
-              onProceed={handleProceed}
-            />
+        isAuthenticated ? (
+          <div style={{ padding: '0', display: 'flex', backgroundColor: '#FFF9F2' }}>
+            <Sidebar onLogout={handleLogout} />
+            <div style={{ marginLeft: '256px', width: '100%' }}>
+              <MainContent
+                currentStep={currentStep}
+                onGenerate={handleGenerateAssignments}
+                onQuestionSelect={handleQuestionSelect}
+                assignmentQuestions={assignmentQuestions}
+                evaluationCriteria={evaluationCriteria}
+                onGenerateAgain={handleGenerateAgain}
+                onCustomInput={handleCustomInput}
+                onGenerateRubrics={handleGenerateRubrics}
+                onViewRubrics={handleViewRubrics}
+                isLoading={isLoading}
+                loadingRubricIndex={loadingRubricIndex}
+                onProceed={handleProceed}
+              />
+            </div>
+            {isModalOpen && (
+              <CustomInputModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                onSubmit={handleCustomQuestionSubmit}
+                questionIndex={customQuestionIndex}
+              />
+            )}
+            {isEvaluationModalOpen && (
+              <EvaluationModal
+                isOpen={isEvaluationModalOpen}
+                onClose={() => setIsEvaluationModalOpen(false)}
+                rubric={currentRubric}
+              />
+            )}
+            {isAssignmentModalOpen && (
+              <AssignmentModal
+                isOpen={isAssignmentModalOpen}
+                onClose={() => setIsAssignmentModalOpen(false)}
+                questions={questionsToAssign}
+                topic={assignmentTopic}
+              />
+            )}
           </div>
-          {isModalOpen && (
-            <CustomInputModal
-              isOpen={isModalOpen}
-              onClose={() => setIsModalOpen(false)}
-              onSubmit={handleCustomQuestionSubmit}
-              questionIndex={customQuestionIndex}
-            />
-          )}
-          {isEvaluationModalOpen && (
-            <EvaluationModal
-              isOpen={isEvaluationModalOpen}
-              onClose={() => setIsEvaluationModalOpen(false)}
-              rubric={currentRubric}
-            />
-          )}
-          {isAssignmentModalOpen && (
-            <AssignmentModal
-              isOpen={isAssignmentModalOpen}
-              onClose={() => setIsAssignmentModalOpen(false)}
-              questions={questionsToAssign}
-              topic={assignmentTopic}
-            />
-          )}
-        </div>
+        ) : (
+          <Navigate to="/login" replace />
+        )
       } />
       <Route path="/questions" element={
-        <div style={{ padding: '0', display: 'flex', backgroundColor: '#FFF9F2' }}>
-          <Sidebar onLogout={handleLogout} />
-          <div style={{ marginLeft: '256px', width: '100%' }}>
-            <MainContent
-              currentStep={currentStep}
-              onGenerate={handleGenerateAssignments}
-              onQuestionSelect={handleQuestionSelect}
-              assignmentQuestions={assignmentQuestions}
-              evaluationCriteria={evaluationCriteria}
-              onGenerateAgain={handleGenerateAgain}
-              onCustomInput={handleCustomInput}
-              onGenerateRubrics={handleGenerateRubrics}
-              onViewRubrics={handleViewRubrics}
-              isLoading={isLoading}
-              loadingRubricIndex={loadingRubricIndex}
-              onProceed={handleProceed}
-            />
+        isAuthenticated ? (
+          <div style={{ padding: '0', display: 'flex', backgroundColor: '#FFF9F2' }}>
+            <Sidebar onLogout={handleLogout} />
+            <div style={{ marginLeft: '256px', width: '100%' }}>
+              <MainContent
+                currentStep={currentStep}
+                onGenerate={handleGenerateAssignments}
+                onQuestionSelect={handleQuestionSelect}
+                assignmentQuestions={assignmentQuestions}
+                evaluationCriteria={evaluationCriteria}
+                onGenerateAgain={handleGenerateAgain}
+                onCustomInput={handleCustomInput}
+                onGenerateRubrics={handleGenerateRubrics}
+                onViewRubrics={handleViewRubrics}
+                isLoading={isLoading}
+                loadingRubricIndex={loadingRubricIndex}
+                onProceed={handleProceed}
+              />
+            </div>
+            {isModalOpen && (
+              <CustomInputModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                onSubmit={handleCustomQuestionSubmit}
+                questionIndex={customQuestionIndex}
+              />
+            )}
+            {isEvaluationModalOpen && (
+              <EvaluationModal
+                isOpen={isEvaluationModalOpen}
+                onClose={() => setIsEvaluationModalOpen(false)}
+                rubric={currentRubric}
+              />
+            )}
+            {isAssignmentModalOpen && (
+              <AssignmentModal
+                isOpen={isAssignmentModalOpen}
+                onClose={() => setIsAssignmentModalOpen(false)}
+                questions={questionsToAssign}
+                topic={assignmentTopic}
+              />
+            )}
           </div>
-          {isModalOpen && (
-            <CustomInputModal
-              isOpen={isModalOpen}
-              onClose={() => setIsModalOpen(false)}
-              onSubmit={handleCustomQuestionSubmit}
-              questionIndex={customQuestionIndex}
-            />
-          )}
-          {isEvaluationModalOpen && (
-            <EvaluationModal
-              isOpen={isEvaluationModalOpen}
-              onClose={() => setIsEvaluationModalOpen(false)}
-              rubric={currentRubric}
-            />
-          )}
-          {isAssignmentModalOpen && (
-            <AssignmentModal
-              isOpen={isAssignmentModalOpen}
-              onClose={() => setIsAssignmentModalOpen(false)}
-              questions={questionsToAssign}
-              topic={assignmentTopic}
-            />
-          )}
-        </div>
+        ) : (
+          <Navigate to="/login" replace />
+        )
       } />
       <Route path="/submissions" element={
-        <div style={{ padding: '0', display: 'flex', backgroundColor: '#FFF9F2' }}>
-          <Sidebar onLogout={handleLogout} />
-          <div style={{ marginLeft: '256px', width: '100%' }}>
-            <Submissions />
+        isAuthenticated ? (
+          <div style={{ padding: '0', display: 'flex', backgroundColor: '#FFF9F2' }}>
+            <Sidebar onLogout={handleLogout} />
+            <div style={{ marginLeft: '256px', width: '100%' }}>
+              <Submissions />
+            </div>
           </div>
-        </div>
+        ) : (
+          <Navigate to="/login" replace />
+        )
       } />
     </Routes>
   );
