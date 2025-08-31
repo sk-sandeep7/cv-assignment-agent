@@ -10,6 +10,9 @@ import sqlite3
 import uuid
 import datetime
 from typing import List, Dict, Any, Optional
+import hmac
+import hashlib
+import base64
 
 # Add startup debugging
 print("🚀 Starting application...")
@@ -98,6 +101,28 @@ except ImportError as e:
 
 # This line is crucial for local development. It allows OAuth to run over HTTP.
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+
+# OAuth state utilities for stateless authentication
+def create_signed_state(state: str, secret_key: str) -> str:
+    """Create a signed state parameter that can be verified later"""
+    message = state.encode('utf-8')
+    signature = hmac.new(secret_key.encode('utf-8'), message, hashlib.sha256).hexdigest()
+    signed_state = base64.b64encode(f"{state}:{signature}".encode('utf-8')).decode('utf-8')
+    return signed_state
+
+def verify_signed_state(signed_state: str, original_state: str, secret_key: str) -> bool:
+    """Verify that the signed state matches the original state"""
+    try:
+        decoded = base64.b64decode(signed_state.encode('utf-8')).decode('utf-8')
+        stored_state, signature = decoded.split(':', 1)
+        
+        # Verify the signature
+        expected_signature = hmac.new(secret_key.encode('utf-8'), stored_state.encode('utf-8'), hashlib.sha256).hexdigest()
+        
+        # Check if signatures match and states match
+        return hmac.compare_digest(signature, expected_signature) and stored_state == original_state
+    except Exception:
+        return False
 
 app = FastAPI()
 
@@ -452,10 +477,16 @@ async def get_google_auth_url(request: Request):
         authorization_url, state = flow.authorization_url(
             access_type='offline', include_granted_scopes='true')
         
-        request.session['state'] = state
+        # Create a signed state token instead of storing in session
+        signed_state = create_signed_state(state, SECRET_KEY)
+        
+        # Store the signed state in the URL instead of session
+        authorization_url = authorization_url.replace(f"state={state}", f"state={signed_state}")
+        
         print(f"🔑 Auth URL generated successfully")
-        print(f"🔑 Session state stored: {state}")
-        print(f"🔑 Session contents after storing state: {dict(request.session)}")
+        print(f"🔑 Original state: {state}")
+        print(f"🔑 Signed state: {signed_state}")
+        print(f"🔑 Using stateless OAuth flow")
         return JSONResponse({'auth_url': authorization_url})
     except HTTPException:
         raise
@@ -469,25 +500,34 @@ async def get_google_auth_url(request: Request):
 @app.get("/api/auth/google/callback")
 async def api_auth_google_callback(request: Request):
     """Handles the callback from Google after the user has authenticated."""
-    state_from_session = request.session.get('state')
-    state_from_query = request.query_params.get('state')
+    signed_state_from_query = request.query_params.get('state')
     
-    print(f"🔑 OAuth Callback Debug:")
-    print(f"   Session contents: {dict(request.session)}")
-    print(f"   Session ID (if available): {getattr(request.session, 'session_id', 'No session ID')}")
-    print(f"   State from session: {state_from_session}")
-    print(f"   State from query: {state_from_query}")
-    print(f"   States match: {state_from_session == state_from_query}")
+    print(f"🔑 OAuth Callback Debug (Stateless):")
+    print(f"   Signed state from query: {signed_state_from_query}")
     print(f"   Full URL: {request.url}")
     print(f"   Request cookies: {request.cookies}")
     
-    if not state_from_session or state_from_session != state_from_query:
-        print(f"❌ State mismatch error!")
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="State mismatch")
+    if not signed_state_from_query:
+        print(f"❌ No state parameter in callback!")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing state parameter")
 
     try:
+        # Decode the signed state to get the original state
+        decoded = base64.b64decode(signed_state_from_query.encode('utf-8')).decode('utf-8')
+        original_state, signature = decoded.split(':', 1)
+        
+        # Verify the signature
+        expected_signature = hmac.new(SECRET_KEY.encode('utf-8'), original_state.encode('utf-8'), hashlib.sha256).hexdigest()
+        
+        if not hmac.compare_digest(signature, expected_signature):
+            print(f"❌ Invalid state signature!")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid state signature")
+        
+        print(f"✅ State signature verified successfully")
+        print(f"   Original state: {original_state}")
+        
         flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(
-            CLIENT_SECRETS_FILE, scopes=SCOPES, state=state_from_session)
+            CLIENT_SECRETS_FILE, scopes=SCOPES, state=original_state)
         
         # Use the same redirect URI logic as in auth URL generation
         railway_domain = os.getenv('RAILWAY_PUBLIC_DOMAIN')
@@ -501,7 +541,10 @@ async def api_auth_google_callback(request: Request):
         flow.redirect_uri = redirect_uri
         print(f"🔑 Callback redirect URI: {redirect_uri}")
 
-        authorization_response = str(request.url)
+        # Replace the signed state with original state in the URL for token exchange
+        authorization_response = str(request.url).replace(f"state={signed_state_from_query}", f"state={original_state}")
+        print(f"🔑 Modified auth response URL for token exchange")
+        
         flow.fetch_token(authorization_response=authorization_response)
         
         credentials = flow.credentials
@@ -515,8 +558,11 @@ async def api_auth_google_callback(request: Request):
             'login_timestamp': datetime.datetime.now().isoformat()  # Add login timestamp
         }
         
+        print(f"✅ OAuth flow completed successfully")
         return RedirectResponse(url=FRONTEND_URL)
+        
     except Exception as e:
+        print(f"❌ OAuth callback error: {str(e)}")
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={'error': "An error occurred during token exchange", 'details': str(e)}
