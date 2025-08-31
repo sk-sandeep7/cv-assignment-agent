@@ -35,10 +35,13 @@ function App() {
         credentials: 'include'
       });
       const data = await response.json();
+      console.log('Auth check result:', data); // Debug log
       setIsAuthenticated(data.logged_in);
       setAuthChecked(true);
       
+      // Only redirect if not authenticated and on a protected route
       if (!data.logged_in && (location.pathname === '/home' || location.pathname === '/questions' || location.pathname === '/submissions')) {
+        console.log('Not authenticated, redirecting to login'); // Debug log
         navigate('/login');
       }
     } catch (error) {
@@ -52,8 +55,16 @@ function App() {
   };
 
   // Check auth status on mount and when location changes
+  // Add a small delay when coming from OAuth redirect
   useEffect(() => {
-    checkAuthStatus();
+    if (location.pathname === '/home' && !authChecked) {
+      // Add a small delay for OAuth redirects to allow session to establish
+      setTimeout(() => {
+        checkAuthStatus();
+      }, 500);
+    } else {
+      checkAuthStatus();
+    }
   }, [location.pathname]);
 
   const handleLogout = async () => {

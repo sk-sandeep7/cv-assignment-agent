@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../Login.css';
 import API_BASE_URL from '../config';
@@ -7,28 +7,9 @@ const Login = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    // Check if user is already authenticated
-    checkAuthStatus();
-  }, []);
-
-  const checkAuthStatus = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/check_auth`, {
-        credentials: 'include'
-      });
-      const data = await response.json();
-      if (data.logged_in) {
-        navigate('/home');
-      } else if (data.message && data.message.includes('expired')) {
-        // Show session expiry message
-        console.log('Session expired:', data.message);
-        // You could show a toast notification here
-      }
-    } catch (error) {
-      console.log('Not authenticated');
-    }
-  };
+  // Note: Authentication check is now handled by App.jsx
+  // No need to check auth status here as the App component
+  // will redirect authenticated users away from this page
 
   const handleGoogleLogin = async () => {
     setLoading(true);
