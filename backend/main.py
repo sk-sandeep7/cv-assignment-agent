@@ -16,8 +16,8 @@ import base64
 from urllib.parse import quote
 from sqlalchemy.orm import Session
 from database import SessionLocal, engine, get_db
-from models import Base, User, Assignment, Question, Submission, StudentAnswer
-from legacy_service import LegacyQuestionAssignment
+from models import Base, QuestionAssignment
+from legacy_service import QuestionService
 
 # Add startup debugging
 print("🚀 Starting application...")
@@ -170,8 +170,9 @@ async def startup_event():
         # Test connection with a simple query
         db = SessionLocal()
         try:
-            result = db.execute("SELECT 1").fetchone()
-            print("✅ PostgreSQL database connection successful")
+            from sqlalchemy import text
+            result = db.execute(text("SELECT 1")).fetchone()
+            print("✅ Database connection successful")
         finally:
             db.close()
     except Exception as e:
@@ -1012,8 +1013,8 @@ async def get_assignment_questions(assignment_title: str, db: Session = Depends(
     This helps fetch evaluation criteria for grading.
     """
     try:
-        legacy_service = LegacyQuestionAssignment(db)
-        questions = legacy_service.get_questions_by_topic(assignment_title)
+        question_service = QuestionService(db)
+        questions = question_service.get_questions_by_topic(assignment_title)
         
         return JSONResponse(content={
             'status': 'success',
@@ -1222,14 +1223,26 @@ async def store_questions(req: StoreQuestionsRequest, db: Session = Depends(get_
     Called when user clicks the Proceed button
     """
     try:
-        legacy_service = LegacyQuestionAssignment(db)
-        result = legacy_service.store_questions(req.questions)
+        print(f"🔍 Store questions called with {len(req.questions)} questions")
+        for i, q in enumerate(req.questions):
+            print(f"  Question {i+1}: {q.get('question', 'No question')[:50]}...")
+            print(f"    Marks: {q.get('marks', 'No marks')}")
+            print(f"    Topic: {q.get('topic', 'No topic')}")
+        
+        question_service = QuestionService(db, user_id="system")
+        result = question_service.store_questions(req.questions)
+        
+        print(f"🔍 Store questions result: {result.get('status', 'No status')}")
         return result
         
     except Exception as e:
+        error_msg = f"Failed to store questions: {str(e)}"
+        print(f"❌ Store questions error: {error_msg}")
+        import traceback
+        print(f"❌ Stack trace: {traceback.format_exc()}")
         return {
             "status": "error",
-            "message": f"Failed to store questions: {str(e)}"
+            "message": error_msg
         }
 
 
@@ -1239,8 +1252,8 @@ async def get_stored_questions(db: Session = Depends(get_db)):
     Retrieve all stored questions from the database
     """
     try:
-        legacy_service = LegacyQuestionAssignment(db)
-        questions = legacy_service.get_all_questions()
+        question_service = QuestionService(db)
+        questions = question_service.get_all_questions()
         
         return {
             "status": "success",

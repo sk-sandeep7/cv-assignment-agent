@@ -1,73 +1,54 @@
-# Legacy question assignments for backward compatibility
-# This maintains the existing API structure while using PostgreSQL
-
+# Simple question storage service for PostgreSQL single table
 from sqlalchemy.orm import Session
-from models import User, Assignment, Question, Submission, StudentAnswer
-from database import get_db
+from models import QuestionAssignment
 import json
 import uuid
 import datetime
 from typing import List, Dict, Any
 
-class LegacyQuestionAssignment:
+class QuestionService:
     """
-    Legacy compatibility layer for the existing question assignment system.
-    Maps the old SQLite schema to PostgreSQL models.
+    Simple service for storing and retrieving questions in a single PostgreSQL table.
     """
     
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, user_id: str = "system"):
         self.db = db
+        self.user_id = user_id
     
     def store_questions(self, questions_data: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Store questions in the new PostgreSQL schema"""
+        """Store questions in the PostgreSQL questions table"""
         try:
             stored_questions = []
             
             for question_data in questions_data:
-                # Generate unique ID using timestamp and UUID
+                # Generate unique question ID using timestamp and UUID
                 timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-                unique_id = f"{timestamp}_{str(uuid.uuid4())[:8]}"
+                question_id = f"{timestamp}_{str(uuid.uuid4())[:8]}"
                 
                 # Extract data from the question
                 question_text = question_data.get("question", "")
-                marks = question_data.get("marks", 0)
+                marks = float(question_data.get("marks", 0))
                 topic_list = question_data.get("topic", [])
                 evaluation_rubrics = question_data.get("rubrics", [])
                 
-                # For legacy compatibility, we'll store these as a special assignment
-                # Create a temporary assignment if it doesn't exist
-                assignment_title = f"Legacy-{'-'.join(topic_list) if topic_list else 'General'}"
+                # Store evaluation metrics as JSON (including topic and rubrics)
+                evaluation_metrics = {
+                    "topic": topic_list,
+                    "rubrics": evaluation_rubrics
+                }
                 
-                # Check if assignment exists
-                assignment = self.db.query(Assignment).filter(
-                    Assignment.title == assignment_title,
-                    Assignment.teacher_id == "system"  # Use system as the teacher for legacy questions
-                ).first()
-                
-                if not assignment:
-                    # Create a system assignment for legacy questions
-                    assignment = Assignment(
-                        title=assignment_title,
-                        description=f"Legacy questions for topics: {', '.join(topic_list)}",
-                        teacher_id="system",
-                        course_id="legacy",
-                        total_marks=marks
-                    )
-                    self.db.add(assignment)
-                    self.db.flush()  # Get the ID
-                
-                # Create the question
-                question = Question(
-                    assignment_id=assignment.id,
-                    question_text=question_text,
-                    answer="",  # Legacy system doesn't store answers
+                # Create the question record
+                question_record = QuestionAssignment(
+                    question_id=question_id,
+                    user_id=self.user_id,
+                    question=question_text,
                     marks=marks,
-                    question_order=1
+                    evaluation_metrics=json.dumps(evaluation_metrics)
                 )
-                self.db.add(question)
+                self.db.add(question_record)
                 
                 stored_questions.append({
-                    "id": unique_id,
+                    "id": question_id,
                     "question": question_text,
                     "marks": marks,
                     "topic": topic_list,
@@ -96,25 +77,28 @@ class LegacyQuestionAssignment:
             if assignment_title.startswith("Assignment-"):
                 topic = assignment_title.replace("Assignment-", "")
                 
-                # Search for assignments with matching topic in title
-                assignments = self.db.query(Assignment).filter(
-                    Assignment.title.like(f"%{topic}%")
-                ).all()
+                # Search for questions with matching topic in evaluation_metrics
+                questions = self.db.query(QuestionAssignment).all()
                 
-                questions = []
-                for assignment in assignments:
-                    for question in assignment.questions:
-                        # Parse topic from assignment title for legacy format
-                        topic_parts = assignment.title.replace("Legacy-", "").split("-")
-                        questions.append({
-                            'id': str(question.id),
-                            'question': question.question_text,
-                            'marks': question.marks,
-                            'topic': topic_parts,
-                            'rubrics': []  # Legacy system doesn't store detailed rubrics
-                        })
+                matching_questions = []
+                for question in questions:
+                    try:
+                        metrics = json.loads(question.evaluation_metrics)
+                        topics = metrics.get("topic", [])
+                        
+                        # Check if any topic matches
+                        if any(topic.lower() in t.lower() for t in topics):
+                            matching_questions.append({
+                                'id': question.question_id,
+                                'question': question.question,
+                                'marks': question.marks,
+                                'topic': topics,
+                                'rubrics': metrics.get("rubrics", [])
+                            })
+                    except json.JSONDecodeError:
+                        continue
                 
-                return questions
+                return matching_questions
             
             return []
         
@@ -126,21 +110,30 @@ class LegacyQuestionAssignment:
         try:
             questions = []
             
-            # Get all questions from all assignments
-            all_questions = self.db.query(Question).join(Assignment).all()
+            # Get all questions from the table
+            all_questions = self.db.query(QuestionAssignment).order_by(QuestionAssignment.created_at.desc()).all()
             
             for question in all_questions:
-                # Parse topic from assignment title for legacy format
-                topic_parts = question.assignment.title.replace("Legacy-", "").split("-")
-                
-                questions.append({
-                    "id": str(question.id),
-                    "question": question.question_text,
-                    "marks": question.marks,
-                    "topic": topic_parts,
-                    "rubrics": [],  # Legacy system doesn't store detailed rubrics
-                    "created_at": question.created_at.isoformat() if question.created_at else None
-                })
+                try:
+                    metrics = json.loads(question.evaluation_metrics)
+                    questions.append({
+                        "id": question.question_id,
+                        "question": question.question,
+                        "marks": question.marks,
+                        "topic": metrics.get("topic", []),
+                        "rubrics": metrics.get("rubrics", []),
+                        "created_at": question.created_at.isoformat() if question.created_at else None
+                    })
+                except json.JSONDecodeError:
+                    # Fallback for malformed JSON
+                    questions.append({
+                        "id": question.question_id,
+                        "question": question.question,
+                        "marks": question.marks,
+                        "topic": [],
+                        "rubrics": [],
+                        "created_at": question.created_at.isoformat() if question.created_at else None
+                    })
             
             return questions
         
