@@ -123,7 +123,13 @@ async def startup_event():
     print("✅ Application startup completed successfully")
 
 # A secret key is required for SessionMiddleware to sign the cookies.
-SECRET_KEY = os.urandom(24)
+# Use environment variable for consistent sessions across restarts
+SECRET_KEY = os.getenv('SESSION_SECRET_KEY', 'fallback-dev-key-change-in-production')
+if SECRET_KEY == 'fallback-dev-key-change-in-production':
+    print("⚠️ WARNING: Using default SECRET_KEY. Set SESSION_SECRET_KEY environment variable for production!")
+else:
+    print("✅ Using custom SESSION_SECRET_KEY from environment")
+
 # Set session expiry to 7 days (7 * 24 * 60 * 60 seconds)
 SESSION_MAX_AGE = 7 * 24 * 60 * 60  # 7 days in seconds
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY, max_age=SESSION_MAX_AGE)
