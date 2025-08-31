@@ -415,11 +415,20 @@ async def get_google_auth_url(request: Request):
         flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(
             CLIENT_SECRETS_FILE, scopes=SCOPES)
         
-        # Generate the redirect URI using FastAPI's request object
-        redirect_uri = request.url_for('api_auth_google_callback')
+        # Generate the redirect URI - force HTTPS for Railway deployment
+        railway_domain = os.getenv('RAILWAY_PUBLIC_DOMAIN')
+        if railway_domain:
+            # For Railway deployment, always use HTTPS
+            redirect_uri = f"https://{railway_domain}/api/auth/google/callback"
+        else:
+            # For local development
+            redirect_uri = request.url_for('api_auth_google_callback')
+        
         flow.redirect_uri = redirect_uri
         
         print(f"🔑 Redirect URI: {redirect_uri}")
+        print(f"🔑 Railway domain: {railway_domain}")
+        print(f"🔑 Using forced HTTPS: {railway_domain is not None}")
 
         authorization_url, state = flow.authorization_url(
             access_type='offline', include_granted_scopes='true')
