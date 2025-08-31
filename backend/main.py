@@ -17,72 +17,58 @@ print(f"Python version: {os.sys.version}")
 print(f"Current working directory: {os.getcwd()}")
 print(f"PORT environment variable: {os.getenv('PORT', 'Not set')}")
 
-# CRITICAL: Create client_secret.json IMMEDIATELY to prevent auth failures
-def ensure_client_secret_file():
-    """Ensure client_secret.json exists, create from env vars if needed"""
-    try:
-        if os.path.exists('client_secret.json'):
-            print("✅ client_secret.json file found")
-            return True
-        else:
-            print("❌ client_secret.json file NOT found - creating from environment variables")
-            
-            # Try individual components first (most likely for Railway)
-            client_id = os.getenv('GOOGLE_CLIENT_ID')
-            client_secret = os.getenv('GOOGLE_CLIENT_SECRET')
-            railway_domain = os.getenv('RAILWAY_PUBLIC_DOMAIN')
-            
-            if client_id and client_secret:
-                print("✅ Found individual Google OAuth environment variables")
-                client_config = {
-                    "web": {
-                        "client_id": client_id,
-                        "project_id": os.getenv('GOOGLE_PROJECT_ID', 'classroom-project-470618'),
-                        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                        "token_uri": "https://oauth2.googleapis.com/token",
-                        "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-                        "client_secret": client_secret,
-                        "redirect_uris": [f"https://{railway_domain}/api/auth/google/callback"] if railway_domain else ["http://localhost:8000/api/auth/google/callback"],
-                        "javascript_origins": [f"https://{railway_domain}"] if railway_domain else ["http://localhost:8000"]
-                    }
+# CRITICAL: Create client_secret.json IMMEDIATELY - inline execution
+print("🔑 CRITICAL: Attempting to ensure client_secret.json exists...")
+try:
+    if os.path.exists('client_secret.json'):
+        print("✅ client_secret.json file found")
+    else:
+        print("❌ client_secret.json file NOT found - creating from environment variables")
+        
+        # Try individual components first (most likely for Railway)
+        client_id = os.getenv('GOOGLE_CLIENT_ID')
+        client_secret = os.getenv('GOOGLE_CLIENT_SECRET')
+        railway_domain = os.getenv('RAILWAY_PUBLIC_DOMAIN')
+        
+        if client_id and client_secret:
+            print("✅ Found individual Google OAuth environment variables")
+            client_config = {
+                "web": {
+                    "client_id": client_id,
+                    "project_id": os.getenv('GOOGLE_PROJECT_ID', 'classroom-project-470618'),
+                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                    "token_uri": "https://oauth2.googleapis.com/token",
+                    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+                    "client_secret": client_secret,
+                    "redirect_uris": [f"https://{railway_domain}/api/auth/google/callback"] if railway_domain else ["http://localhost:8000/api/auth/google/callback"],
+                    "javascript_origins": [f"https://{railway_domain}"] if railway_domain else ["http://localhost:8000"]
                 }
+            }
+            try:
+                with open('client_secret.json', 'w') as f:
+                    json.dump(client_config, f, indent=2)
+                print("✅ Created client_secret.json from individual environment variables")
+            except Exception as e:
+                print(f"❌ Error creating client_secret.json from components: {e}")
+        else:
+            # Try CLIENT_SECRET_JSON as backup
+            client_secret_json = os.getenv('CLIENT_SECRET_JSON')
+            if client_secret_json:
+                print("✅ Found CLIENT_SECRET_JSON environment variable")
                 try:
                     with open('client_secret.json', 'w') as f:
-                        json.dump(client_config, f, indent=2)
-                    print("✅ Created client_secret.json from individual environment variables")
-                    return True
+                        f.write(client_secret_json)
+                    print("✅ Created client_secret.json from CLIENT_SECRET_JSON")
                 except Exception as e:
-                    print(f"❌ Error creating client_secret.json from components: {e}")
-                    return False
+                    print(f"❌ Error creating client_secret.json: {e}")
             else:
-                # Try CLIENT_SECRET_JSON as backup
-                client_secret_json = os.getenv('CLIENT_SECRET_JSON')
-                if client_secret_json:
-                    print("✅ Found CLIENT_SECRET_JSON environment variable")
-                    try:
-                        with open('client_secret.json', 'w') as f:
-                            f.write(client_secret_json)
-                        print("✅ Created client_secret.json from CLIENT_SECRET_JSON")
-                        return True
-                    except Exception as e:
-                        print(f"❌ Error creating client_secret.json: {e}")
-                        return False
-                else:
-                    print(f"⚠️ No valid OAuth configuration found!")
-                    print(f"GOOGLE_CLIENT_ID: {'SET' if client_id else 'NOT SET'}")
-                    print(f"GOOGLE_CLIENT_SECRET: {'SET' if client_secret else 'NOT SET'}")
-                    print(f"RAILWAY_PUBLIC_DOMAIN: {'SET' if railway_domain else 'NOT SET'}")
-                    print("⚠️ Application will continue but OAuth endpoints may fail")
-                    return False
-    except Exception as e:
-        print(f"❌ Unexpected error in ensure_client_secret_file: {e}")
-        return False
-
-# Try to ensure client secret file exists (CRITICAL - must run early)
-print("🔑 CRITICAL: Attempting to ensure client_secret.json exists...")
-client_secret_ok = ensure_client_secret_file()
-if not client_secret_ok:
-    print("⚠️ OAuth configuration incomplete - some features may not work")
+                print(f"⚠️ No valid OAuth configuration found!")
+                print(f"GOOGLE_CLIENT_ID: {'SET' if client_id else 'NOT SET'}")
+                print(f"GOOGLE_CLIENT_SECRET: {'SET' if client_secret else 'NOT SET'}")
+                print(f"RAILWAY_PUBLIC_DOMAIN: {'SET' if railway_domain else 'NOT SET'}")
+                print("⚠️ Application will continue but OAuth endpoints may fail")
+except Exception as e:
+    print(f"❌ Unexpected error creating client_secret.json: {e}")
 
 try:
     print(f"Available files in current directory: {os.listdir('.')}")
