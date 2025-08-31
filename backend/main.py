@@ -31,16 +31,19 @@ SECRET_KEY = os.urandom(24)
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
 
 # Allow CORS for frontend
+# Get allowed origins from environment variable or use localhost for development
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:5174").split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:5174"],  # Support both ports
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # --- Google API Configuration ---
-CLIENT_SECRETS_FILE = "client_secret.json"
+CLIENT_SECRETS_FILE = os.getenv("CLIENT_SECRETS_FILE", "client_secret.json")
 SCOPES = [
     "https://www.googleapis.com/auth/classroom.courses.readonly",
     "https://www.googleapis.com/auth/classroom.coursework.students",
@@ -50,10 +53,11 @@ SCOPES = [
 ]
 API_SERVICE_NAME = 'classroom'
 API_VERSION = 'v1'
-FRONTEND_URL = "http://localhost:5173/home"  # Redirect to home page after login
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173/home")  # Redirect to home page after login
 
-# SQLite setup
-conn = sqlite3.connect('assignments.db', check_same_thread=False)
+# SQLite setup - use absolute path for production deployment
+DB_PATH = os.getenv("DATABASE_PATH", "assignments.db")
+conn = sqlite3.connect(DB_PATH, check_same_thread=False)
 c = conn.cursor()
 
 # Drop old table if it exists
