@@ -448,14 +448,34 @@ async def get_google_auth_url(request: Request):
 @app.get("/api/auth/google/callback")
 async def api_auth_google_callback(request: Request):
     """Handles the callback from Google after the user has authenticated."""
-    state = request.session.get('state')
-    if not state or state != request.query_params.get('state'):
+    state_from_session = request.session.get('state')
+    state_from_query = request.query_params.get('state')
+    
+    print(f"🔑 OAuth Callback Debug:")
+    print(f"   State from session: {state_from_session}")
+    print(f"   State from query: {state_from_query}")
+    print(f"   States match: {state_from_session == state_from_query}")
+    print(f"   Full URL: {request.url}")
+    
+    if not state_from_session or state_from_session != state_from_query:
+        print(f"❌ State mismatch error!")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="State mismatch")
 
     try:
         flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(
-            CLIENT_SECRETS_FILE, scopes=SCOPES, state=state)
-        flow.redirect_uri = request.url_for('api_auth_google_callback')
+            CLIENT_SECRETS_FILE, scopes=SCOPES, state=state_from_session)
+        
+        # Use the same redirect URI logic as in auth URL generation
+        railway_domain = os.getenv('RAILWAY_PUBLIC_DOMAIN')
+        if railway_domain:
+            # For Railway deployment, always use HTTPS
+            redirect_uri = f"https://{railway_domain}/api/auth/google/callback"
+        else:
+            # For local development
+            redirect_uri = request.url_for('api_auth_google_callback')
+        
+        flow.redirect_uri = redirect_uri
+        print(f"🔑 Callback redirect URI: {redirect_uri}")
 
         authorization_response = str(request.url)
         flow.fetch_token(authorization_response=authorization_response)
