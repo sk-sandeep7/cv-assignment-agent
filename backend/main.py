@@ -75,6 +75,19 @@ async def startup_event():
     print("🎯 FastAPI startup event triggered")
     print(f"Database file exists: {os.path.exists('assignments.db')}")
     print(f"Environment PYTHON_PATH: {os.getenv('PYTHONPATH', 'Not set')}")
+    
+    # Test database connection
+    try:
+        conn = sqlite3.connect('assignments.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+        tables = cursor.fetchall()
+        print(f"Database tables: {[table[0] for table in tables]}")
+        conn.close()
+        print("✅ Database connection successful")
+    except Exception as e:
+        print(f"❌ Database connection failed: {e}")
+    
     print("✅ Application startup completed successfully")
 
 # A secret key is required for SessionMiddleware to sign the cookies.
@@ -318,7 +331,13 @@ async def get_drive_service(request: Request):
 
 @app.get("/")
 def read_root():
-    return {"Hello": "World"}
+    """Root endpoint for health check"""
+    return {
+        "status": "healthy", 
+        "message": "CV Assignment Agent API is running",
+        "timestamp": datetime.datetime.now().isoformat(),
+        "version": "1.0.0"
+    }
 
 @app.get("/debug/cors")
 def debug_cors_info(request: Request):
@@ -350,19 +369,36 @@ async def preflight_debug_cors():
 async def get_google_auth_url(request: Request):
     """Provides the Google OAuth 2.0 URL to the frontend."""
     try:
+        print(f"🔑 Auth URL request - CLIENT_SECRETS_FILE: {CLIENT_SECRETS_FILE}")
+        print(f"🔑 File exists: {os.path.exists(CLIENT_SECRETS_FILE)}")
+        
+        if not os.path.exists(CLIENT_SECRETS_FILE):
+            print(f"❌ {CLIENT_SECRETS_FILE} not found!")
+            print(f"Available files: {os.listdir('.')}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Client secrets file not found: {CLIENT_SECRETS_FILE}"
+            )
+        
         flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(
             CLIENT_SECRETS_FILE, scopes=SCOPES)
         
         # Generate the redirect URI using FastAPI's request object
         redirect_uri = request.url_for('api_auth_google_callback')
         flow.redirect_uri = redirect_uri
+        
+        print(f"🔑 Redirect URI: {redirect_uri}")
 
         authorization_url, state = flow.authorization_url(
             access_type='offline', include_granted_scopes='true')
         
         request.session['state'] = state
+        print(f"🔑 Auth URL generated successfully")
         return JSONResponse({'auth_url': authorization_url})
+    except HTTPException:
+        raise
     except Exception as e:
+        print(f"❌ Auth URL generation failed: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate auth URL: {str(e)}"
