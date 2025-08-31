@@ -52,7 +52,7 @@ const AssignmentModal = ({ isOpen, onClose, questions, topic }) => {
       const topicString = Array.isArray(topic) ? topic.join(', ') : topic;
       const assignmentData = {
         title: `Assignment-${topicString}`,
-        description: null, // Let backend handle description generation with question IDs
+        description: "Submit Your Assignment in PDF Format ONLY", // Let backend handle description generation with question IDs
         deadline: deadline || null,
         course_id: selectedCourse,
         questions: questions
