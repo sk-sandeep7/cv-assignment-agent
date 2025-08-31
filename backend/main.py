@@ -34,7 +34,7 @@ app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY, max_age=SESSION_MAX
 
 # Allow CORS for frontend
 # Get allowed origins from environment variable or use localhost for development
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS","https://cv-assignment-agent.vercel.app", "http://localhost:5173,http://localhost:5174").split(",")
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS","https://cv-assignment-agent.vercel.app,http://localhost:5173,http://localhost:5174").split(",")
 
 app.add_middleware(
     CORSMiddleware,
