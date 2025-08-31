@@ -1,35 +1,80 @@
-from fastapi import FastAPI, Request
+import os
+import json
+import io
+from fastapi import FastAPI, Request, Depends, HTTPException, status
+from fastapi.responses import RedirectResponse, JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 from pydantic import BaseModel
 import sqlite3
+import uuid
+import datetime
+from typing import List, Dict, Any, Optional
+
+import google.oauth2.credentials
+import google_auth_oauthlib.flow
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
+from google.auth.transport.requests import Request as GoogleRequest
 
 from generate_openai import generate_questions_with_openai, generate_custom_question_with_openai
 from evaluation_openai import generate_evaluation_rubrics_with_openai
+from grade_openai import evaluate_submission, assign_grade_to_classroom
+
+# This line is crucial for local development. It allows OAuth to run over HTTP.
+os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
 app = FastAPI()
+
+# A secret key is required for SessionMiddleware to sign the cookies.
+SECRET_KEY = os.urandom(24)
+app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
 
 # Allow CORS for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",  # Local development
-        "http://localhost:3000",  # Alternative local port
-        "https://*.vercel.app",   # Vercel domains
-        "https://*.onrender.com", # Render domains (if you deploy frontend there too)
-    ],
+    allow_origins=["http://localhost:5173", "http://localhost:5174"],  # Support both ports
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# --- Google API Configuration ---
+CLIENT_SECRETS_FILE = "client_secret.json"
+SCOPES = [
+    "https://www.googleapis.com/auth/classroom.courses.readonly",
+    "https://www.googleapis.com/auth/classroom.coursework.students",
+    "https://www.googleapis.com/auth/classroom.rosters.readonly",
+    "https://www.googleapis.com/auth/classroom.student-submissions.students.readonly",
+    "https://www.googleapis.com/auth/drive.readonly"  # Added to access Google Drive files
+]
+API_SERVICE_NAME = 'classroom'
+API_VERSION = 'v1'
+FRONTEND_URL = "http://localhost:5173/home"  # Redirect to home page after login
+
 # SQLite setup
 conn = sqlite3.connect('assignments.db', check_same_thread=False)
 c = conn.cursor()
-c.execute('''CREATE TABLE IF NOT EXISTS assignments (id INTEGER PRIMARY KEY, question TEXT)''')
+
+# Drop old table if it exists
+c.execute('DROP TABLE IF EXISTS assignments')
+
+# Create new table with proper schema
+c.execute('''
+    CREATE TABLE IF NOT EXISTS question_assignments (
+        id TEXT PRIMARY KEY,
+        question TEXT NOT NULL,
+        marks INTEGER NOT NULL,
+        topic TEXT NOT NULL,
+        evaluation_rubrics TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+''')
 conn.commit()
 
 class QuestionRequest(BaseModel):
-    question: str
+    topic: List[str]
+    num_questions: int
 
 class CriteriaRequest(BaseModel):
     question: str
@@ -45,13 +90,675 @@ class CustomQuestionRequest(BaseModel):
     user_input: str
     index: int
 
+class EvaluationRubricRequest(BaseModel):
+    question: str
+    marks: int
+
+class StoreQuestionsRequest(BaseModel):
+    questions: List[Dict[str, Any]]
+
 class EvaluationRequest(BaseModel):
     question: str
     marks: int
 
+class AssignmentCreate(BaseModel):
+    title: str
+    description: Optional[str] = None
+    deadline: Optional[str] = None  # Expecting ISO 8601 format
+    course_id: str
+    questions: List[Dict[str, Any]]
+
+class GradeSubmissionsRequest(BaseModel):
+    course_id: str
+    assignment_id: str
+    questions: List[Dict[str, Any]]
+
+# --- Dependency for getting Classroom Service ---
+async def get_classroom_service(request: Request):
+    """
+    FastAPI dependency to build and return a Google Classroom API service object.
+    If the user is not authenticated, it raises an HTTPException.
+    """
+    credentials_dict = request.session.get('credentials')
+    if not credentials_dict:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not authenticated"
+        )
+    
+    credentials = google.oauth2.credentials.Credentials(**credentials_dict)
+
+    # If the token is expired, refresh it
+    if credentials.expired and credentials.refresh_token:
+        credentials.refresh(GoogleRequest())
+        # Update the session with the refreshed credentials
+        request.session['credentials'] = {
+            'token': credentials.token,
+            'refresh_token': credentials.refresh_token,
+            'token_uri': credentials.token_uri,
+            'client_id': credentials.client_id,
+            'client_secret': credentials.client_secret,
+            'scopes': credentials.scopes
+        }
+
+    try:
+        service = build(API_SERVICE_NAME, API_VERSION, credentials=credentials)
+        return service
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to build Classroom service: {str(e)}"
+        )
+
+# --- Dependency for getting Drive Service ---
+async def get_drive_service(request: Request):
+    """
+    FastAPI dependency to build and return a Google Drive API service object.
+    If the user is not authenticated, it raises an HTTPException.
+    """
+    credentials_dict = request.session.get('credentials')
+    if not credentials_dict:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not authenticated"
+        )
+    
+    credentials = google.oauth2.credentials.Credentials(**credentials_dict)
+
+    # If the token is expired, refresh it
+    if credentials.expired and credentials.refresh_token:
+        credentials.refresh(GoogleRequest())
+        # Update the session with the refreshed credentials
+        request.session['credentials'] = {
+            'token': credentials.token,
+            'refresh_token': credentials.refresh_token,
+            'token_uri': credentials.token_uri,
+            'client_id': credentials.client_id,
+            'client_secret': credentials.client_secret,
+            'scopes': credentials.scopes
+        }
+
+    try:
+        service = build('drive', 'v3', credentials=credentials)
+        return service
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to build Google API service: {e}"
+        )
+
 @app.get("/")
 def read_root():
     return {"Hello": "World"}
+
+# --- Google OAuth and Classroom API Routes ---
+
+@app.get("/api/auth/google/url")
+async def get_google_auth_url(request: Request):
+    """Provides the Google OAuth 2.0 URL to the frontend."""
+    try:
+        flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(
+            CLIENT_SECRETS_FILE, scopes=SCOPES)
+        
+        # Generate the redirect URI using FastAPI's request object
+        redirect_uri = request.url_for('api_auth_google_callback')
+        flow.redirect_uri = redirect_uri
+
+        authorization_url, state = flow.authorization_url(
+            access_type='offline', include_granted_scopes='true')
+        
+        request.session['state'] = state
+        return JSONResponse({'auth_url': authorization_url})
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate auth URL: {str(e)}"
+        )
+
+@app.get("/api/auth/google/callback")
+async def api_auth_google_callback(request: Request):
+    """Handles the callback from Google after the user has authenticated."""
+    state = request.session.get('state')
+    if not state or state != request.query_params.get('state'):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="State mismatch")
+
+    try:
+        flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(
+            CLIENT_SECRETS_FILE, scopes=SCOPES, state=state)
+        flow.redirect_uri = request.url_for('api_auth_google_callback')
+
+        authorization_response = str(request.url)
+        flow.fetch_token(authorization_response=authorization_response)
+        
+        credentials = flow.credentials
+        request.session['credentials'] = {
+            'token': credentials.token,
+            'refresh_token': credentials.refresh_token,
+            'token_uri': credentials.token_uri,
+            'client_id': credentials.client_id,
+            'client_secret': credentials.client_secret,
+            'scopes': credentials.scopes
+        }
+        
+        return RedirectResponse(url=FRONTEND_URL)
+    except Exception as e:
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={'error': "An error occurred during token exchange", 'details': str(e)}
+        )
+
+@app.post("/api/auth/google/logout")
+async def api_auth_google_logout(request: Request):
+    """Logs the user out by clearing the session."""
+    request.session.clear()
+    return JSONResponse({'status': 'success', 'message': 'Logged out'})
+
+@app.get("/api/check_auth")
+async def api_check_auth(request: Request):
+    """Checks if a user's session and credentials exist."""
+    if 'credentials' in request.session:
+        return JSONResponse({'logged_in': True})
+    return JSONResponse({'logged_in': False})
+
+@app.get("/api/classroom/courses")
+async def api_get_courses(service=Depends(get_classroom_service)):
+    """Fetches the list of courses for the authenticated user."""
+    try:
+        print("Fetching courses...")
+        results = service.courses().list(teacherId="me", pageSize=50).execute()
+        courses = results.get('courses', [])
+        print(f"Found {len(courses)} courses")
+        for course in courses:
+            print(f"Course: {course.get('name')} (ID: {course.get('id')})")
+        return JSONResponse(content=courses)
+    except HttpError as error:
+        print(f"HTTP Error in courses endpoint: {error}")
+        print(f"Error details: {error.content}")
+        raise HTTPException(status_code=error.resp.status, detail=f"An API error occurred: {error}")
+    except Exception as e:
+        print(f"General error in courses endpoint: {e}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@app.post("/api/classroom/create-assignment")
+async def api_create_assignment(assignment_data: AssignmentCreate, service=Depends(get_classroom_service)):
+    """Creates a new assignment (courseWork) in a specific course."""
+    
+    # Format the description with questions and marks
+    description_parts = []
+    topic_str = ""
+    
+    if assignment_data.questions:
+        # Extract topic from first question for title
+        if assignment_data.questions[0].get('topic'):
+            if isinstance(assignment_data.questions[0]['topic'], list):
+                topic_str = ", ".join(assignment_data.questions[0]['topic'])
+            else:
+                topic_str = str(assignment_data.questions[0]['topic'])
+    
+    # Create title
+    title = f"Assignment-{topic_str}" if topic_str else assignment_data.title
+    
+    # Format questions in description
+    total_marks = 0
+    for i, q in enumerate(assignment_data.questions, 1):
+        question_text = q.get('question', '')
+        marks = q.get('marks', 0)
+        question_id = q.get('id', '')
+        
+        # Add to total marks
+        total_marks += marks
+        
+        # Include question ID in the format {id: xxxx}
+        if question_id:
+            description_parts.append(f"Q{i}. {question_text} ({marks} marks) {{id: {question_id}}}")
+        else:
+            description_parts.append(f"Q{i}. {question_text} ({marks} marks)")
+    
+    description = "\n\n".join(description_parts)
+    if assignment_data.description:
+        description = f"{assignment_data.description}\n\n{description}"
+    
+    print(f"Creating assignment with total marks: {total_marks}")
+    
+    course_work = {
+        'title': title,
+        'description': description,
+        'workType': 'ASSIGNMENT',
+        'state': 'PUBLISHED',
+        'maxPoints': total_marks  # Set as graded assignment with total marks
+    }
+
+    # Handle the deadline if it was provided in the request
+    if assignment_data.deadline:
+        try:
+            # Parse the ISO 8601 string from the frontend.
+            dt_deadline = datetime.datetime.fromisoformat(assignment_data.deadline.replace("Z", "+00:00"))
+            
+            # Convert to UTC to ensure timezone consistency for the API.
+            dt_utc = dt_deadline.astimezone(datetime.timezone.utc)
+            
+            # Format for the Google Classroom API
+            course_work['dueDate'] = {
+                'year': dt_utc.year,
+                'month': dt_utc.month,
+                'day': dt_utc.day
+            }
+            course_work['dueTime'] = {
+                'hours': dt_utc.hour,
+                'minutes': dt_utc.minute
+            }
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid deadline format. Please use ISO 8601 format (e.g., YYYY-MM-DDTHH:MM:SSZ)."
+            )
+            
+    try:
+        assignment = service.courses().courseWork().create(
+            courseId=assignment_data.course_id,
+            body=course_work
+        ).execute()
+        return JSONResponse(content=assignment)
+    except HttpError as error:
+        error_details = json.loads(error.content.decode('utf-8'))
+        raise HTTPException(
+            status_code=error.resp.status,
+            detail={"message": "An API error occurred", "details": error_details}
+        )
+
+@app.get("/api/classroom/assignments/{course_id}")
+async def api_get_assignments(course_id: str, service=Depends(get_classroom_service)):
+    """Fetches the list of assignments (courseWork) for a specific course."""
+    try:
+        print(f"Fetching assignments for course: {course_id}")
+        results = service.courses().courseWork().list(
+            courseId=course_id,
+            pageSize=50
+        ).execute()
+        assignments = results.get('courseWork', [])
+        print(f"Found {len(assignments)} assignments")
+        return JSONResponse(content=assignments)
+    except HttpError as error:
+        print(f"HTTP Error in assignments endpoint: {error}")
+        print(f"Error details: {error.content}")
+        raise HTTPException(status_code=error.resp.status, detail=f"An API error occurred: {error}")
+    except Exception as e:
+        print(f"General error in assignments endpoint: {e}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@app.get("/api/classroom/submissions/{course_id}/{assignment_id}")
+async def api_get_submissions(course_id: str, assignment_id: str, service=Depends(get_classroom_service)):
+    """Fetches student submissions for a specific assignment."""
+    try:
+        print(f"Fetching submissions for course: {course_id}, assignment: {assignment_id}")
+        
+        # Get submissions
+        submissions_result = service.courses().courseWork().studentSubmissions().list(
+            courseId=course_id,
+            courseWorkId=assignment_id,
+            pageSize=100
+        ).execute()
+        submissions = submissions_result.get('studentSubmissions', [])
+        print(f"Found {len(submissions)} submissions")
+        
+        # Get course roster to map user IDs to names
+        try:
+            students_result = service.courses().students().list(
+                courseId=course_id,
+                pageSize=100
+            ).execute()
+            students = students_result.get('students', [])
+            print(f"Found {len(students)} students in course")
+            
+            # Debug: Print the structure of the first student (if any)
+            if students:
+                print(f"Sample student structure: {students[0]}")
+                
+        except HttpError as student_error:
+            print(f"Error fetching students: {student_error}")
+            # If we can't get students, continue with submissions but without names
+            students = []
+        
+        # Create a mapping of userId to student info
+        student_map = {}
+        for student in students:
+            try:
+                # Get student profile information with fallbacks
+                profile = student.get('profile', {})
+                name_info = profile.get('name', {})
+                
+                # Try different ways to get the student name
+                full_name = name_info.get('fullName')
+                if not full_name:
+                    given_name = name_info.get('givenName', '')
+                    family_name = name_info.get('familyName', '')
+                    full_name = f"{given_name} {family_name}".strip()
+                
+                if not full_name:
+                    full_name = f"Student {student.get('userId', 'Unknown')}"
+                
+                # Note: Google Classroom API doesn't provide email addresses in the students.list endpoint
+                # This is by design for privacy reasons. Email access would require additional permissions
+                # and possibly a different API endpoint or admin access.
+                student_id = student.get('userId', 'Unknown')
+                
+                student_map[student['userId']] = {
+                    'name': full_name,
+                    'email': f"Student ID: {student_id}",  # Show student ID instead of email
+                    'studentId': student_id
+                }
+                print(f"Processed student: {full_name} (ID: {student_id})")
+                
+            except Exception as e:
+                print(f"Unexpected error processing student: {e}")
+                print(f"Student data: {student}")
+                # Still add student with minimal info
+                student_id = student.get('userId', 'unknown')
+                student_map[student_id] = {
+                    'name': f"Student {student_id}",
+                    'email': f"Student ID: {student_id}",
+                    'studentId': student_id
+                }
+                continue
+        
+        # Enhance submissions with student information and attachments
+        enhanced_submissions = []
+        for submission in submissions:
+            student_info = student_map.get(submission['userId'], {
+                'name': 'Unknown Student',
+                'email': f"Student ID: {submission['userId']}",
+                'studentId': submission['userId']
+            })
+            
+            # Extract attachment information
+            attachments = []
+            assignment_submission = submission.get('assignmentSubmission', {})
+            
+            # Check for different types of attachments
+            if 'attachments' in assignment_submission:
+                for attachment in assignment_submission['attachments']:
+                    attachment_info = {}
+                    
+                    # Handle Google Drive files
+                    if 'driveFile' in attachment:
+                        drive_file = attachment['driveFile']
+                        attachment_info = {
+                            'type': 'drive_file',
+                            'id': drive_file.get('id'),
+                            'title': drive_file.get('title', 'Untitled'),
+                            'alternateLink': drive_file.get('alternateLink'),
+                            'thumbnailUrl': drive_file.get('thumbnailUrl'),
+                            'downloadUrl': drive_file.get('alternateLink')  # Use alternate link for viewing
+                        }
+                        
+                    # Handle YouTube videos
+                    elif 'youTubeVideo' in attachment:
+                        youtube_video = attachment['youTubeVideo']
+                        attachment_info = {
+                            'type': 'youtube_video',
+                            'id': youtube_video.get('id'),
+                            'title': youtube_video.get('title', 'YouTube Video'),
+                            'alternateLink': youtube_video.get('alternateLink'),
+                            'thumbnailUrl': youtube_video.get('thumbnailUrl'),
+                            'downloadUrl': None
+                        }
+                        
+                    # Handle links
+                    elif 'link' in attachment:
+                        link = attachment['link']
+                        attachment_info = {
+                            'type': 'link',
+                            'url': link.get('url'),
+                            'title': link.get('title', 'Link'),
+                            'thumbnailUrl': link.get('thumbnailUrl'),
+                            'downloadUrl': link.get('url')
+                        }
+                    
+                    if attachment_info:
+                        attachments.append(attachment_info)
+            
+            enhanced_submission = {
+                'id': submission['id'],
+                'userId': submission['userId'],
+                'studentName': student_info['name'],
+                'studentEmail': student_info['email'],  # This will now show "Student ID: ..." instead of email
+                'studentId': student_info.get('studentId', submission['userId']),
+                'state': submission['state'],
+                'creationTime': submission.get('creationTime'),
+                'updateTime': submission.get('updateTime'),
+                'assignedGrade': submission.get('assignedGrade'),
+                'draftGrade': submission.get('draftGrade'),
+                'submissionHistory': submission.get('submissionHistory', []),
+                'attachments': attachments
+            }
+            enhanced_submissions.append(enhanced_submission)
+        
+        print(f"Returning {len(enhanced_submissions)} enhanced submissions")
+        return JSONResponse(content=enhanced_submissions)
+    except HttpError as error:
+        print(f"HTTP Error in submissions endpoint: {error}")
+        print(f"Error details: {error.content}")
+        raise HTTPException(status_code=error.resp.status, detail=f"An API error occurred: {error}")
+    except Exception as e:
+        print(f"General error in submissions endpoint: {e}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@app.get("/api/download/drive-file/{file_id}")
+async def download_drive_file(file_id: str, drive_service=Depends(get_drive_service)):
+    """Download a PDF file from Google Drive."""
+    try:
+        print(f"Attempting to download Drive file: {file_id}")
+        
+        # Get file metadata first
+        file_metadata = drive_service.files().get(fileId=file_id).execute()
+        file_name = file_metadata.get('name', 'download.pdf')
+        mime_type = file_metadata.get('mimeType', 'application/pdf')
+        
+        print(f"File metadata: {file_name}, {mime_type}")
+        
+        # Download file content
+        request = drive_service.files().get_media(fileId=file_id)
+        file_content = io.BytesIO()
+        downloader = request.execute()
+        
+        if isinstance(downloader, bytes):
+            file_content.write(downloader)
+        else:
+            # Handle case where it's a file-like object
+            file_content.write(downloader)
+        
+        file_content.seek(0)
+        
+        # Set appropriate headers for PDF download
+        headers = {
+            'Content-Disposition': f'attachment; filename="{file_name}"',
+            'Content-Type': mime_type
+        }
+        
+        return StreamingResponse(
+            io.BytesIO(file_content.read()),
+            media_type=mime_type,
+            headers=headers
+        )
+        
+    except HttpError as error:
+        print(f"HTTP Error downloading file: {error}")
+        if error.resp.status == 404:
+            raise HTTPException(status_code=404, detail="File not found")
+        elif error.resp.status == 403:
+            raise HTTPException(status_code=403, detail="Access denied to file")
+        else:
+            raise HTTPException(status_code=error.resp.status, detail=f"Drive API error: {error}")
+    except Exception as e:
+        print(f"General error downloading file: {e}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@app.get("/api/get-assignment-questions/{assignment_title}")
+async def get_assignment_questions(assignment_title: str):
+    """
+    Get stored questions for an assignment based on the assignment title.
+    This helps fetch evaluation criteria for grading.
+    """
+    try:
+        # Extract topic from assignment title (format: "Assignment-{topic}")
+        if assignment_title.startswith("Assignment-"):
+            topic = assignment_title.replace("Assignment-", "")
+            
+            # Search for questions with matching topic
+            c.execute('''
+                SELECT id, question, marks, topic, evaluation_rubrics 
+                FROM question_assignments 
+                WHERE topic LIKE ?
+                ORDER BY created_at DESC
+            ''', (f'%{topic}%',))
+            
+            results = c.fetchall()
+            
+            questions = []
+            for row in results:
+                questions.append({
+                    'id': row[0],
+                    'question': row[1],
+                    'marks': row[2],
+                    'topic': json.loads(row[3]),
+                    'rubrics': json.loads(row[4])
+                })
+            
+            return JSONResponse(content={
+                'status': 'success',
+                'questions': questions
+            })
+        else:
+            return JSONResponse(content={
+                'status': 'error',
+                'message': 'Invalid assignment title format'
+            })
+            
+    except Exception as e:
+        print(f"Error fetching assignment questions: {e}")
+        return JSONResponse(content={
+            'status': 'error',
+            'message': f'Error fetching questions: {str(e)}'
+        })
+
+@app.post("/api/classroom/grade-submissions")
+async def api_grade_submissions(
+    request: GradeSubmissionsRequest,
+    classroom_service=Depends(get_classroom_service),
+    drive_service=Depends(get_drive_service)
+):
+    """
+    Grade student submissions using LLM evaluation against rubrics.
+    Automatically assigns grades back to Google Classroom.
+    """
+    try:
+        print(f"Starting grading for assignment {request.assignment_id} in course {request.course_id}")
+        
+        # Get all submissions for this assignment
+        submissions_result = classroom_service.courses().courseWork().studentSubmissions().list(
+            courseId=request.course_id,
+            courseWorkId=request.assignment_id,
+            pageSize=100
+        ).execute()
+        
+        submissions = submissions_result.get('studentSubmissions', [])
+        print(f"Found {len(submissions)} submissions to grade")
+        
+        # Get student information for names
+        student_map = {}
+        try:
+            students_result = classroom_service.courses().students().list(
+                courseId=request.course_id,
+                pageSize=100
+            ).execute()
+            students = students_result.get('students', [])
+            
+            for student in students:
+                profile = student.get('profile', {})
+                name_info = profile.get('name', {})
+                full_name = name_info.get('fullName', f"Student {student.get('userId', 'Unknown')}")
+                student_map[student['userId']] = full_name
+        except Exception as e:
+            print(f"Error fetching student names: {e}")
+        
+        graded_results = []
+        successful_grades = 0
+        
+        for submission in submissions:
+            try:
+                # Skip if not turned in
+                if submission.get('state') != 'TURNED_IN':
+                    print(f"Skipping submission {submission.get('id')} - not turned in")
+                    continue
+                
+                student_id = submission.get('userId')
+                student_name = student_map.get(student_id, f"Student {student_id}")
+                
+                print(f"Grading submission from {student_name}")
+                
+                # Evaluate the submission
+                grading_result = await evaluate_submission(
+                    submission_data=submission,
+                    questions=request.questions,
+                    drive_service=drive_service,
+                    student_name=student_name
+                )
+                
+                if grading_result:
+                    # Assign grade back to Google Classroom
+                    assigned_grade = grading_result.get('total_marks', 0)
+                    feedback = grading_result.get('overall_feedback', '')
+                    
+                    grade_assigned = await assign_grade_to_classroom(
+                        classroom_service=classroom_service,
+                        course_id=request.course_id,
+                        assignment_id=request.assignment_id,
+                        submission_id=submission.get('id'),
+                        assigned_grade=assigned_grade,
+                        feedback=feedback
+                    )
+                    
+                    if grade_assigned:
+                        successful_grades += 1
+                        grading_result['grade_assigned_to_classroom'] = True
+                    else:
+                        grading_result['grade_assigned_to_classroom'] = False
+                    
+                    graded_results.append({
+                        'student_id': student_id,
+                        'student_name': student_name,
+                        'submission_id': submission.get('id'),
+                        'grading_result': grading_result
+                    })
+                else:
+                    print(f"Failed to grade submission from {student_name}")
+                    
+            except Exception as e:
+                print(f"Error processing submission from {student_name}: {e}")
+                continue
+        
+        return JSONResponse(content={
+            'status': 'success',
+            'total_submissions': len(submissions),
+            'graded_count': len(graded_results),
+            'grades_assigned_to_classroom': successful_grades,
+            'results': graded_results
+        })
+        
+    except HttpError as error:
+        print(f"Google Classroom API error: {error}")
+        raise HTTPException(
+            status_code=error.resp.status,
+            detail=f"Google Classroom API error: {error}"
+        )
+    except Exception as e:
+        print(f"Error in grading endpoint: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error grading submissions: {str(e)}"
+        )
+
+# --- Existing Question Generation Routes ---
 
 @app.post("/api/generate-questions")
 async def generate_questions(request: Request):
@@ -66,12 +773,11 @@ async def generate_questions(request: Request):
         get_few_shots = get_few_shots[:num_questions]
         
     questions = [
-        {"question": q["question"], "marks": q.get("marks", 7)} for q in get_few_shots
+        {"question": q["question"], "marks": q.get("marks", 7), "topic": q.get("topic", [])} for q in get_few_shots
     ]
-    # Save to DB for demo
-    for q in questions:
-        c.execute("INSERT INTO assignments (question) VALUES (?)", (q["question"],))
-    conn.commit()
+    
+    # Note: Questions are not saved to DB here anymore
+    # They will be saved only when user clicks "Proceed" button
     return {"questions": questions}
 
 @app.post("/api/get-evaluation-criteria")
@@ -116,7 +822,95 @@ async def regenerate_question(request: Request):
     if get_few_shots:
         new_question = {
             "question": get_few_shots[0]["question"],
-            "marks": get_few_shots[0].get("marks", 7)
+            "marks": get_few_shots[0].get("marks", 7),
+            "topic": get_few_shots[0].get("topic", [])
         }
         return new_question
     return {}
+
+
+@app.post("/api/store-questions")
+async def store_questions(req: StoreQuestionsRequest):
+    """
+    Store all questions with their evaluation rubrics in the database
+    Called when user clicks the Proceed button
+    """
+    try:
+        stored_questions = []
+        
+        for question_data in req.questions:
+            # Generate unique ID using timestamp and UUID
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            unique_id = f"{timestamp}_{str(uuid.uuid4())[:8]}"
+            
+            # Extract data from the question
+            question_text = question_data.get("question", "")
+            marks = question_data.get("marks", 0)
+            topic = json.dumps(question_data.get("topic", []))  # Store as JSON string
+            evaluation_rubrics = json.dumps(question_data.get("rubrics", []))  # Store as JSON string
+            
+            # Insert into database
+            c.execute('''
+                INSERT INTO question_assignments 
+                (id, question, marks, topic, evaluation_rubrics, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (unique_id, question_text, marks, topic, evaluation_rubrics, datetime.datetime.now()))
+            
+            stored_questions.append({
+                "id": unique_id,
+                "question": question_text,
+                "marks": marks,
+                "topic": json.loads(topic),
+                "rubrics": json.loads(evaluation_rubrics)
+            })
+        
+        conn.commit()
+        
+        return {
+            "status": "success",
+            "message": f"Successfully stored {len(stored_questions)} questions",
+            "stored_questions": stored_questions
+        }
+        
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Failed to store questions: {str(e)}"
+        }
+
+
+@app.get("/api/get-stored-questions")
+async def get_stored_questions():
+    """
+    Retrieve all stored questions from the database
+    """
+    try:
+        c.execute('''
+            SELECT id, question, marks, topic, evaluation_rubrics, created_at 
+            FROM question_assignments 
+            ORDER BY created_at DESC
+        ''')
+        
+        rows = c.fetchall()
+        questions = []
+        
+        for row in rows:
+            questions.append({
+                "id": row[0],
+                "question": row[1],
+                "marks": row[2],
+                "topic": json.loads(row[3]),
+                "rubrics": json.loads(row[4]),
+                "created_at": row[5]
+            })
+        
+        return {
+            "status": "success",
+            "questions": questions
+        }
+        
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Failed to retrieve questions: {str(e)}"
+        }

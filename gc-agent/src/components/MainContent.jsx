@@ -9,6 +9,7 @@ const MainContent = ({
   onCustomInput,
   onGenerateRubrics,
   onViewRubrics,
+  onProceed,
   isLoading,
   loadingRubricIndex,
 }) => {
@@ -18,6 +19,10 @@ const MainContent = ({
   const handleGenerateClick = () => {
     onGenerate(topicsInput, numQuestions);
   };
+
+  // Check if all questions have evaluation rubrics
+  const allQuestionsHaveRubrics = assignmentQuestions.length > 0 && 
+    assignmentQuestions.every(q => q.rubrics && q.rubrics.length > 0);
 
   return (
     <div className="main-content">
@@ -91,9 +96,24 @@ const MainContent = ({
                   ))}
                 </tbody>
               </table>
-              <button onClick={() => onGenerateAgain(topicsInput, undefined, numQuestions)} className="button button-primary" style={{ marginTop: '1.5rem' }}>
-                Generate All Again
-              </button>
+              <div className="questions-actions" style={{ marginTop: '1.5rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                <button onClick={() => onGenerateAgain(topicsInput, undefined, numQuestions)} className="button button-primary">
+                  Generate All Again
+                </button>
+                <button 
+                  onClick={onProceed} 
+                  className={`button ${allQuestionsHaveRubrics ? 'button-success' : 'button-disabled'}`}
+                  disabled={!allQuestionsHaveRubrics}
+                  title={!allQuestionsHaveRubrics ? 'Generate evaluation metrics for all questions first' : 'Proceed to next step'}
+                >
+                  Proceed
+                </button>
+                {!allQuestionsHaveRubrics && (
+                  <span className="proceed-hint" style={{ color: '#6b7280', fontSize: '0.875rem' }}>
+                    Generate evaluation metrics for all questions to proceed
+                  </span>
+                )}
+              </div>
             </div>
           )}
         </>

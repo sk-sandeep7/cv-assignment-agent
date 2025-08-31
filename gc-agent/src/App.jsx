@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import MainContent from './components/MainContent';
 import CustomInputModal from './components/CustomInputModal';
 import EvaluationModal from './components/EvaluationModal';
+import AssignmentModal from './components/AssignmentModal';
+import Submissions from './components/Submissions';
+import Login from './components/Login';
 import API_BASE_URL from './config';
 
 function App() {
@@ -15,18 +18,34 @@ function App() {
   const [evaluationCriteria, setEvaluationCriteria] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEvaluationModalOpen, setIsEvaluationModalOpen] = useState(false);
+  const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
   const [currentRubric, setCurrentRubric] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [customQuestionIndex, setCustomQuestionIndex] = useState(null);
   const [loadingRubricIndex, setLoadingRubricIndex] = useState(null);
+  const [questionsToAssign, setQuestionsToAssign] = useState([]);
+  const [assignmentTopic, setAssignmentTopic] = useState('');
+
+  const handleLogout = async () => {
+    try {
+      await fetch(`${API_BASE_URL}/api/auth/google/logout`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+      // Redirect to login page
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Still redirect to login page even if logout API fails
+      navigate('/login');
+    }
+  };
 
   useEffect(() => {
     if (location.pathname === '/questions' && assignmentQuestions.length > 0) {
       setCurrentStep('questions_generated');
-    } else {
+    } else if (location.pathname === '/home') {
       setCurrentStep('initial');
-      // Optional: Clear questions if navigating back to home
-      // setAssignmentQuestions([]); 
     }
   }, [location.pathname, assignmentQuestions.length]);
 
@@ -165,60 +184,147 @@ function App() {
   };
 
   const handleProceed = async () => {
-    setIsLoading(true);
+    // Check if all questions have rubrics
+    const allHaveRubrics = assignmentQuestions.every(q => q.rubrics && q.rubrics.length > 0);
+    
+    if (!allHaveRubrics) {
+      alert('Please generate evaluation metrics for all questions before proceeding.');
+      return;
+    }
+
     try {
-      const res = await fetch(`${API_BASE_URL}/api/execute-task`, {
+      // Store questions in database to get IDs
+      const response = await fetch(`${API_BASE_URL}/api/store-questions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: selectedQuestion, criteria: evaluationCriteria }),
+        body: JSON.stringify({ questions: assignmentQuestions }),
       });
-      const data = await res.json();
-      if (data.status === 'success') {
-        setCurrentStep('task_successful');
-      } else {
-        alert('Task failed');
+
+      if (!response.ok) {
+        throw new Error(`Failed to store questions: ${response.status}`);
       }
-    } catch (err) {
-      alert('Failed to execute task');
+
+      const result = await response.json();
+      
+      if (result.status === 'success' && result.stored_questions) {
+        // Update questions with database IDs
+        setAssignmentQuestions(result.stored_questions);
+        
+        // Extract topic from questions for assignment title
+        const topicFromQuestions = result.stored_questions[0]?.topic || ['General Assignment'];
+        setAssignmentTopic(topicFromQuestions);
+        setQuestionsToAssign(result.stored_questions);
+        setIsAssignmentModalOpen(true);
+      } else {
+        throw new Error(result.message || 'Failed to store questions');
+      }
+    } catch (error) {
+      console.error('Error storing questions:', error);
+      alert('Failed to save questions. Please try again.');
     }
-    setIsLoading(false);
   };
 
   return (
-    <div style={{ padding: '0', display: 'flex', backgroundColor: '#FFF9F2' }}>
-      <Sidebar />
-      <div style={{ marginLeft: '256px', width: '100%' }}>
-        <MainContent
-          currentStep={currentStep}
-          onGenerate={handleGenerateAssignments}
-          onQuestionSelect={handleQuestionSelect}
-          assignmentQuestions={assignmentQuestions}
-          evaluationCriteria={evaluationCriteria}
-          onGenerateAgain={handleGenerateAgain}
-          onCustomInput={handleCustomInput}
-          onGenerateRubrics={handleGenerateRubrics}
-          onViewRubrics={handleViewRubrics}
-          isLoading={isLoading}
-          loadingRubricIndex={loadingRubricIndex}
-          onProceed={handleProceed}
-        />
-      </div>
-      {isModalOpen && (
-        <CustomInputModal
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          onSubmit={handleCustomQuestionSubmit}
-          questionIndex={customQuestionIndex}
-        />
-      )}
-      {isEvaluationModalOpen && (
-        <EvaluationModal
-          isOpen={isEvaluationModalOpen}
-          onClose={() => setIsEvaluationModalOpen(false)}
-          rubric={currentRubric}
-        />
-      )}
-    </div>
+    <Routes>
+      <Route path="/" element={<Navigate to="/login" replace />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/home" element={
+        <div style={{ padding: '0', display: 'flex', backgroundColor: '#FFF9F2' }}>
+          <Sidebar onLogout={handleLogout} />
+          <div style={{ marginLeft: '256px', width: '100%' }}>
+            <MainContent
+              currentStep={currentStep}
+              onGenerate={handleGenerateAssignments}
+              onQuestionSelect={handleQuestionSelect}
+              assignmentQuestions={assignmentQuestions}
+              evaluationCriteria={evaluationCriteria}
+              onGenerateAgain={handleGenerateAgain}
+              onCustomInput={handleCustomInput}
+              onGenerateRubrics={handleGenerateRubrics}
+              onViewRubrics={handleViewRubrics}
+              isLoading={isLoading}
+              loadingRubricIndex={loadingRubricIndex}
+              onProceed={handleProceed}
+            />
+          </div>
+          {isModalOpen && (
+            <CustomInputModal
+              isOpen={isModalOpen}
+              onClose={() => setIsModalOpen(false)}
+              onSubmit={handleCustomQuestionSubmit}
+              questionIndex={customQuestionIndex}
+            />
+          )}
+          {isEvaluationModalOpen && (
+            <EvaluationModal
+              isOpen={isEvaluationModalOpen}
+              onClose={() => setIsEvaluationModalOpen(false)}
+              rubric={currentRubric}
+            />
+          )}
+          {isAssignmentModalOpen && (
+            <AssignmentModal
+              isOpen={isAssignmentModalOpen}
+              onClose={() => setIsAssignmentModalOpen(false)}
+              questions={questionsToAssign}
+              topic={assignmentTopic}
+            />
+          )}
+        </div>
+      } />
+      <Route path="/questions" element={
+        <div style={{ padding: '0', display: 'flex', backgroundColor: '#FFF9F2' }}>
+          <Sidebar onLogout={handleLogout} />
+          <div style={{ marginLeft: '256px', width: '100%' }}>
+            <MainContent
+              currentStep={currentStep}
+              onGenerate={handleGenerateAssignments}
+              onQuestionSelect={handleQuestionSelect}
+              assignmentQuestions={assignmentQuestions}
+              evaluationCriteria={evaluationCriteria}
+              onGenerateAgain={handleGenerateAgain}
+              onCustomInput={handleCustomInput}
+              onGenerateRubrics={handleGenerateRubrics}
+              onViewRubrics={handleViewRubrics}
+              isLoading={isLoading}
+              loadingRubricIndex={loadingRubricIndex}
+              onProceed={handleProceed}
+            />
+          </div>
+          {isModalOpen && (
+            <CustomInputModal
+              isOpen={isModalOpen}
+              onClose={() => setIsModalOpen(false)}
+              onSubmit={handleCustomQuestionSubmit}
+              questionIndex={customQuestionIndex}
+            />
+          )}
+          {isEvaluationModalOpen && (
+            <EvaluationModal
+              isOpen={isEvaluationModalOpen}
+              onClose={() => setIsEvaluationModalOpen(false)}
+              rubric={currentRubric}
+            />
+          )}
+          {isAssignmentModalOpen && (
+            <AssignmentModal
+              isOpen={isAssignmentModalOpen}
+              onClose={() => setIsAssignmentModalOpen(false)}
+              questions={questionsToAssign}
+              topic={assignmentTopic}
+            />
+          )}
+        </div>
+      } />
+      <Route path="/submissions" element={
+        <div style={{ padding: '0', display: 'flex', backgroundColor: '#FFF9F2' }}>
+          <Sidebar onLogout={handleLogout} />
+          <div style={{ marginLeft: '256px', width: '100%' }}>
+            <Submissions />
+          </div>
+        </div>
+      } />
+    </Routes>
   );
 }
 

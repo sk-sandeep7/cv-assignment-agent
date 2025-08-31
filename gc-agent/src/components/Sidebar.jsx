@@ -37,14 +37,21 @@ const ulStyles = {
   margin: 0,
 };
 
-const Sidebar = () => {
+const Sidebar = ({ onLogout }) => {
   // Custom hover effect using React state
   const [hovered, setHovered] = React.useState(null);
   const links = [
-    { label: 'Home', href: '#' },
+    { label: 'Home', href: '/home' },
+    { label: 'Submissions', href: '/submissions' },
     { label: 'Profile', href: '#' },
     { label: 'Settings', href: '#' },
   ];
+
+  const handleLogoutClick = () => {
+    if (onLogout) {
+      onLogout();
+    }
+  };
   return (
     <div style={sidebarStyles}>
       <h2 style={{ fontSize: '2rem', fontWeight: 700, marginBottom: '2.5rem', letterSpacing: '0.05em', fontFamily: 'inherit' }}>Navigation</h2>
@@ -67,6 +74,28 @@ const Sidebar = () => {
           </li>
         ))}
       </ul>
+      
+      {onLogout && (
+        <div style={{ marginTop: '2rem', paddingTop: '2rem', borderTop: '1px solid rgba(255,255,255,0.2)' }}>
+          <button
+            onClick={handleLogoutClick}
+            style={{
+              ...navLinkStyles,
+              background: hovered === 'logout' ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.1)',
+              border: 'none',
+              cursor: 'pointer',
+              width: '100%',
+              textAlign: 'left',
+              fontSize: '1rem',
+              fontWeight: '500'
+            }}
+            onMouseEnter={() => setHovered('logout')}
+            onMouseLeave={() => setHovered(null)}
+          >
+            Logout
+          </button>
+        </div>
+      )}
     </div>
   );
 };
