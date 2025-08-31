@@ -14,6 +14,7 @@ from typing import List, Dict, Any, Optional
 import hmac
 import hashlib
 import base64
+from urllib.parse import quote
 
 # Add startup debugging
 print("🚀 Starting application...")
@@ -102,6 +103,30 @@ except ImportError as e:
 
 # This line is crucial for local development. It allows OAuth to run over HTTP.
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+
+# Temporary store for auth tokens (in production, use Redis or database)
+AUTH_TOKENS = {}
+
+def generate_auth_token(credentials_data):
+    """Generate a temporary auth token for cross-domain authentication"""
+    token_id = str(uuid.uuid4())
+    AUTH_TOKENS[token_id] = {
+        'credentials': credentials_data,
+        'created_at': datetime.datetime.now(),
+        'expires_at': datetime.datetime.now() + datetime.timedelta(minutes=5)  # 5 minute expiry
+    }
+    return token_id
+
+def get_credentials_from_token(token_id):
+    """Retrieve credentials from temporary auth token"""
+    if token_id in AUTH_TOKENS:
+        token_data = AUTH_TOKENS[token_id]
+        if datetime.datetime.now() < token_data['expires_at']:
+            return token_data['credentials']
+        else:
+            # Token expired, remove it
+            del AUTH_TOKENS[token_id]
+    return None
 
 # OAuth state utilities for stateless authentication
 def create_signed_state(state: str, secret_key: str) -> str:
@@ -568,24 +593,31 @@ async def api_auth_google_callback(request: Request):
         flow.fetch_token(authorization_response=authorization_response)
         
         credentials = flow.credentials
-        request.session['credentials'] = {
+        
+        # Store credentials in session (keep for backward compatibility)
+        credentials_data = {
             'token': credentials.token,
             'refresh_token': credentials.refresh_token,
             'token_uri': credentials.token_uri,
             'client_id': credentials.client_id,
             'client_secret': credentials.client_secret,
             'scopes': credentials.scopes,
-            'login_timestamp': datetime.datetime.now().isoformat()  # Add login timestamp
+            'login_timestamp': datetime.datetime.now().isoformat()
         }
+        
+        request.session['credentials'] = credentials_data
         
         print(f"🔑 Session created - Session keys: {list(request.session.keys())}")
         print(f"🔑 Session created - Has credentials: {'credentials' in request.session}")
-        print(f"🔑 Session created - Session ID: {request.session.get('_session_id', 'No ID')}")
-        print(f"✅ OAuth flow completed successfully")
         
-        # Create response with explicit cookie settings for debugging
-        response = RedirectResponse(url=FRONTEND_URL)
-        print(f"🔑 Redirect response headers: {dict(response.headers)}")
+        # Create temporary auth token for cross-domain authentication
+        auth_token = generate_auth_token(credentials_data)
+        print(f"🔑 Generated temporary auth token: {auth_token}")
+        
+        # Redirect with auth token
+        frontend_url_with_token = f"{FRONTEND_URL}?auth_token={auth_token}"
+        response = RedirectResponse(url=frontend_url_with_token)
+        print(f"🔑 Redirecting with temporary auth token")
         return response
         
     except Exception as e:
@@ -594,6 +626,29 @@ async def api_auth_google_callback(request: Request):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={'error': "An error occurred during token exchange", 'details': str(e)}
         )
+
+@app.post("/api/auth/exchange-token")
+async def exchange_auth_token(request: Request):
+    """Exchange temporary auth token for session credentials"""
+    data = await request.json()
+    auth_token = data.get('auth_token')
+    
+    if not auth_token:
+        raise HTTPException(status_code=400, detail="Auth token required")
+    
+    credentials_data = get_credentials_from_token(auth_token)
+    if not credentials_data:
+        raise HTTPException(status_code=400, detail="Invalid or expired auth token")
+    
+    # Set up session with credentials
+    request.session['credentials'] = credentials_data
+    
+    # Remove the used token
+    if auth_token in AUTH_TOKENS:
+        del AUTH_TOKENS[auth_token]
+    
+    print(f"🔑 Token exchanged successfully - User now authenticated")
+    return JSONResponse({'status': 'success', 'message': 'Authentication established'})
 
 @app.post("/api/auth/google/logout")
 async def api_auth_google_logout(request: Request):

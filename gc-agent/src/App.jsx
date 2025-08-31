@@ -54,10 +54,47 @@ function App() {
     }
   };
 
+  // Handle auth token exchange from OAuth redirect
+  const handleAuthTokenExchange = async (authToken) => {
+    try {
+      console.log('Exchanging auth token:', authToken);
+      const response = await fetch(`${API_BASE_URL}/api/auth/exchange-token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ auth_token: authToken })
+      });
+      
+      if (response.ok) {
+        console.log('Auth token exchanged successfully');
+        setIsAuthenticated(true);
+        setAuthChecked(true);
+        
+        // Remove auth token from URL
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, document.title, newUrl);
+        
+        return true;
+      } else {
+        console.error('Auth token exchange failed');
+        return false;
+      }
+    } catch (error) {
+      console.error('Auth token exchange error:', error);
+      return false;
+    }
+  };
+
   // Check auth status on mount and when location changes
-  // Add a small delay when coming from OAuth redirect
   useEffect(() => {
-    if (location.pathname === '/home' && !authChecked) {
+    // Check for auth token in URL first
+    const urlParams = new URLSearchParams(window.location.search);
+    const authToken = urlParams.get('auth_token');
+    
+    if (authToken) {
+      // Handle OAuth redirect with auth token
+      handleAuthTokenExchange(authToken);
+    } else if (location.pathname === '/home' && !authChecked) {
       // Add a small delay for OAuth redirects to allow session to establish
       setTimeout(() => {
         checkAuthStatus();
