@@ -132,7 +132,20 @@ else:
 
 # Set session expiry to 7 days (7 * 24 * 60 * 60 seconds)
 SESSION_MAX_AGE = 7 * 24 * 60 * 60  # 7 days in seconds
-app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY, max_age=SESSION_MAX_AGE)
+
+# Configure session middleware with appropriate settings for Railway
+print(f"🍪 Session middleware configuration:")
+print(f"   SECRET_KEY length: {len(SECRET_KEY)}")
+print(f"   SESSION_MAX_AGE: {SESSION_MAX_AGE} seconds")
+print(f"   Using secure cookies: {os.getenv('RAILWAY_PUBLIC_DOMAIN') is not None}")
+
+app.add_middleware(
+    SessionMiddleware, 
+    secret_key=SECRET_KEY, 
+    max_age=SESSION_MAX_AGE,
+    same_site='lax',  # Allow cross-site cookies for OAuth
+    https_only=False  # Railway handles HTTPS termination
+)
 
 # Allow CORS for frontend
 # Get allowed origins from environment variable or use localhost for development
@@ -441,6 +454,8 @@ async def get_google_auth_url(request: Request):
         
         request.session['state'] = state
         print(f"🔑 Auth URL generated successfully")
+        print(f"🔑 Session state stored: {state}")
+        print(f"🔑 Session contents after storing state: {dict(request.session)}")
         return JSONResponse({'auth_url': authorization_url})
     except HTTPException:
         raise
@@ -458,10 +473,13 @@ async def api_auth_google_callback(request: Request):
     state_from_query = request.query_params.get('state')
     
     print(f"🔑 OAuth Callback Debug:")
+    print(f"   Session contents: {dict(request.session)}")
+    print(f"   Session ID (if available): {getattr(request.session, 'session_id', 'No session ID')}")
     print(f"   State from session: {state_from_session}")
     print(f"   State from query: {state_from_query}")
     print(f"   States match: {state_from_session == state_from_query}")
     print(f"   Full URL: {request.url}")
+    print(f"   Request cookies: {request.cookies}")
     
     if not state_from_session or state_from_session != state_from_query:
         print(f"❌ State mismatch error!")
