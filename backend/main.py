@@ -7,6 +7,7 @@ from fastapi.responses import RedirectResponse, JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from pydantic import BaseModel
+import sqlite3
 import uuid
 import datetime
 from typing import List, Dict, Any, Optional
@@ -14,10 +15,6 @@ import hmac
 import hashlib
 import base64
 from urllib.parse import quote
-from sqlalchemy.orm import Session
-from database import SessionLocal, engine, get_db
-from models import Base, QuestionAssignment
-from legacy_service import QuestionService
 
 # Add startup debugging
 print("🚀 Starting application...")
@@ -164,17 +161,13 @@ async def startup_event():
     
     # Test database connection
     try:
-        # Create database tables if they don't exist
-        Base.metadata.create_all(bind=engine)
-        
-        # Test connection with a simple query
-        db = SessionLocal()
-        try:
-            from sqlalchemy import text
-            result = db.execute(text("SELECT 1")).fetchone()
-            print("✅ Database connection successful")
-        finally:
-            db.close()
+        conn = sqlite3.connect('assignments.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+        tables = cursor.fetchall()
+        print(f"Database tables: {[table[0] for table in tables]}")
+        conn.close()
+        print("✅ Database connection successful")
     except Exception as e:
         print(f"❌ Database connection failed: {e}")
     
@@ -274,8 +267,26 @@ API_SERVICE_NAME = 'classroom'
 API_VERSION = 'v1'
 FRONTEND_URL = os.getenv("FRONTEND_URL", "https://cv-assignment-agent.vercel.app/home")  # Redirect to home page after login
 
-# Database setup - PostgreSQL with SQLAlchemy
-# Tables are created via Base.metadata.create_all() in startup section above
+# SQLite setup - use absolute path for production deployment
+DB_PATH = os.getenv("DATABASE_PATH", "assignments.db")
+conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+c = conn.cursor()
+
+# Drop old table if it exists
+c.execute('DROP TABLE IF EXISTS assignments')
+
+# Create new table with proper schema
+c.execute('''
+    CREATE TABLE IF NOT EXISTS question_assignments (
+        id TEXT PRIMARY KEY,
+        question TEXT NOT NULL,
+        marks INTEGER NOT NULL,
+        topic TEXT NOT NULL,
+        evaluation_rubrics TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+''')
+conn.commit()
 
 class QuestionRequest(BaseModel):
     topic: List[str]
@@ -1007,19 +1018,45 @@ async def download_drive_file(file_id: str, drive_service=Depends(get_drive_serv
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @app.get("/api/get-assignment-questions/{assignment_title}")
-async def get_assignment_questions(assignment_title: str, db: Session = Depends(get_db)):
+async def get_assignment_questions(assignment_title: str):
     """
     Get stored questions for an assignment based on the assignment title.
     This helps fetch evaluation criteria for grading.
     """
     try:
-        question_service = QuestionService(db)
-        questions = question_service.get_questions_by_topic(assignment_title)
-        
-        return JSONResponse(content={
-            'status': 'success',
-            'questions': questions
-        })
+        # Extract topic from assignment title (format: "Assignment-{topic}")
+        if assignment_title.startswith("Assignment-"):
+            topic = assignment_title.replace("Assignment-", "")
+            
+            # Search for questions with matching topic
+            c.execute('''
+                SELECT id, question, marks, topic, evaluation_rubrics 
+                FROM question_assignments 
+                WHERE topic LIKE ?
+                ORDER BY created_at DESC
+            ''', (f'%{topic}%',))
+            
+            results = c.fetchall()
+            
+            questions = []
+            for row in results:
+                questions.append({
+                    'id': row[0],
+                    'question': row[1],
+                    'marks': row[2],
+                    'topic': json.loads(row[3]),
+                    'rubrics': json.loads(row[4])
+                })
+            
+            return JSONResponse(content={
+                'status': 'success',
+                'questions': questions
+            })
+        else:
+            return JSONResponse(content={
+                'status': 'error',
+                'message': 'Invalid assignment title format'
+            })
             
     except Exception as e:
         print(f"Error fetching assignment questions: {e}")
@@ -1217,43 +1254,79 @@ async def regenerate_question(request: Request):
 
 
 @app.post("/api/store-questions")
-async def store_questions(req: StoreQuestionsRequest, db: Session = Depends(get_db)):
+async def store_questions(req: StoreQuestionsRequest):
     """
     Store all questions with their evaluation rubrics in the database
     Called when user clicks the Proceed button
     """
     try:
-        print(f"🔍 Store questions called with {len(req.questions)} questions")
-        for i, q in enumerate(req.questions):
-            print(f"  Question {i+1}: {q.get('question', 'No question')[:50]}...")
-            print(f"    Marks: {q.get('marks', 'No marks')}")
-            print(f"    Topic: {q.get('topic', 'No topic')}")
+        stored_questions = []
         
-        question_service = QuestionService(db, user_id="system")
-        result = question_service.store_questions(req.questions)
+        for question_data in req.questions:
+            # Generate unique ID using timestamp and UUID
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            unique_id = f"{timestamp}_{str(uuid.uuid4())[:8]}"
+            
+            # Extract data from the question
+            question_text = question_data.get("question", "")
+            marks = question_data.get("marks", 0)
+            topic = json.dumps(question_data.get("topic", []))  # Store as JSON string
+            evaluation_rubrics = json.dumps(question_data.get("rubrics", []))  # Store as JSON string
+            
+            # Insert into database
+            c.execute('''
+                INSERT INTO question_assignments 
+                (id, question, marks, topic, evaluation_rubrics, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (unique_id, question_text, marks, topic, evaluation_rubrics, datetime.datetime.now()))
+            
+            stored_questions.append({
+                "id": unique_id,
+                "question": question_text,
+                "marks": marks,
+                "topic": json.loads(topic),
+                "rubrics": json.loads(evaluation_rubrics)
+            })
         
-        print(f"🔍 Store questions result: {result.get('status', 'No status')}")
-        return result
+        conn.commit()
+        
+        return {
+            "status": "success",
+            "message": f"Successfully stored {len(stored_questions)} questions",
+            "stored_questions": stored_questions
+        }
         
     except Exception as e:
-        error_msg = f"Failed to store questions: {str(e)}"
-        print(f"❌ Store questions error: {error_msg}")
-        import traceback
-        print(f"❌ Stack trace: {traceback.format_exc()}")
         return {
             "status": "error",
-            "message": error_msg
+            "message": f"Failed to store questions: {str(e)}"
         }
 
 
 @app.get("/api/get-stored-questions")
-async def get_stored_questions(db: Session = Depends(get_db)):
+async def get_stored_questions():
     """
     Retrieve all stored questions from the database
     """
     try:
-        question_service = QuestionService(db)
-        questions = question_service.get_all_questions()
+        c.execute('''
+            SELECT id, question, marks, topic, evaluation_rubrics, created_at 
+            FROM question_assignments 
+            ORDER BY created_at DESC
+        ''')
+        
+        rows = c.fetchall()
+        questions = []
+        
+        for row in rows:
+            questions.append({
+                "id": row[0],
+                "question": row[1],
+                "marks": row[2],
+                "topic": json.loads(row[3]),
+                "rubrics": json.loads(row[4]),
+                "created_at": row[5]
+            })
         
         return {
             "status": "success",
