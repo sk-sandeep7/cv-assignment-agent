@@ -382,7 +382,7 @@ def read_root():
         "status": "healthy", 
         "message": "CV Assignment Agent API is running",
         "timestamp": datetime.datetime.now().isoformat(),
-        "version": "1.0.1"
+        "version": "1.0.2"
     }
 
 @app.get("/debug/cors")
