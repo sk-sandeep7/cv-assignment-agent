@@ -20,6 +20,10 @@ const Login = () => {
       const data = await response.json();
       if (data.logged_in) {
         navigate('/home');
+      } else if (data.message && data.message.includes('expired')) {
+        // Show session expiry message
+        console.log('Session expired:', data.message);
+        // You could show a toast notification here
       }
     } catch (error) {
       console.log('Not authenticated');

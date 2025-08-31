@@ -28,7 +28,9 @@ app = FastAPI()
 
 # A secret key is required for SessionMiddleware to sign the cookies.
 SECRET_KEY = os.urandom(24)
-app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
+# Set session expiry to 7 days (7 * 24 * 60 * 60 seconds)
+SESSION_MAX_AGE = 7 * 24 * 60 * 60  # 7 days in seconds
+app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY, max_age=SESSION_MAX_AGE)
 
 # Allow CORS for frontend
 # Get allowed origins from environment variable or use localhost for development
@@ -130,19 +132,33 @@ async def get_classroom_service(request: Request):
             detail="User not authenticated"
         )
     
-    credentials = google.oauth2.credentials.Credentials(**credentials_dict)
+    # Check if session has expired (7 days)
+    if 'login_timestamp' in credentials_dict:
+        login_time = datetime.datetime.fromisoformat(credentials_dict['login_timestamp'])
+        current_time = datetime.datetime.now()
+        time_diff = current_time - login_time
+        
+        if time_diff.days >= 7:
+            request.session.clear()
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Session expired after 7 days. Please log in again."
+            )
+    
+    credentials = google.oauth2.credentials.Credentials(**{k: v for k, v in credentials_dict.items() if k != 'login_timestamp'})
 
     # If the token is expired, refresh it
     if credentials.expired and credentials.refresh_token:
         credentials.refresh(GoogleRequest())
-        # Update the session with the refreshed credentials
+        # Update the session with the refreshed credentials, preserving login timestamp
         request.session['credentials'] = {
             'token': credentials.token,
             'refresh_token': credentials.refresh_token,
             'token_uri': credentials.token_uri,
             'client_id': credentials.client_id,
             'client_secret': credentials.client_secret,
-            'scopes': credentials.scopes
+            'scopes': credentials.scopes,
+            'login_timestamp': credentials_dict.get('login_timestamp')  # Preserve login timestamp
         }
 
     try:
@@ -167,19 +183,33 @@ async def get_drive_service(request: Request):
             detail="User not authenticated"
         )
     
-    credentials = google.oauth2.credentials.Credentials(**credentials_dict)
+    # Check if session has expired (7 days)
+    if 'login_timestamp' in credentials_dict:
+        login_time = datetime.datetime.fromisoformat(credentials_dict['login_timestamp'])
+        current_time = datetime.datetime.now()
+        time_diff = current_time - login_time
+        
+        if time_diff.days >= 7:
+            request.session.clear()
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Session expired after 7 days. Please log in again."
+            )
+    
+    credentials = google.oauth2.credentials.Credentials(**{k: v for k, v in credentials_dict.items() if k != 'login_timestamp'})
 
     # If the token is expired, refresh it
     if credentials.expired and credentials.refresh_token:
         credentials.refresh(GoogleRequest())
-        # Update the session with the refreshed credentials
+        # Update the session with the refreshed credentials, preserving login timestamp
         request.session['credentials'] = {
             'token': credentials.token,
             'refresh_token': credentials.refresh_token,
             'token_uri': credentials.token_uri,
             'client_id': credentials.client_id,
             'client_secret': credentials.client_secret,
-            'scopes': credentials.scopes
+            'scopes': credentials.scopes,
+            'login_timestamp': credentials_dict.get('login_timestamp')  # Preserve login timestamp
         }
 
     try:
@@ -241,7 +271,8 @@ async def api_auth_google_callback(request: Request):
             'token_uri': credentials.token_uri,
             'client_id': credentials.client_id,
             'client_secret': credentials.client_secret,
-            'scopes': credentials.scopes
+            'scopes': credentials.scopes,
+            'login_timestamp': datetime.datetime.now().isoformat()  # Add login timestamp
         }
         
         return RedirectResponse(url=FRONTEND_URL)
@@ -259,8 +290,21 @@ async def api_auth_google_logout(request: Request):
 
 @app.get("/api/check_auth")
 async def api_check_auth(request: Request):
-    """Checks if a user's session and credentials exist."""
+    """Checks if a user's session and credentials exist and haven't expired."""
     if 'credentials' in request.session:
+        credentials_dict = request.session['credentials']
+        
+        # Check if login timestamp exists and if session has expired (7 days)
+        if 'login_timestamp' in credentials_dict:
+            login_time = datetime.datetime.fromisoformat(credentials_dict['login_timestamp'])
+            current_time = datetime.datetime.now()
+            time_diff = current_time - login_time
+            
+            # If more than 7 days have passed, clear session and return logged out
+            if time_diff.days >= 7:
+                request.session.clear()
+                return JSONResponse({'logged_in': False, 'message': 'Session expired after 7 days'})
+        
         return JSONResponse({'logged_in': True})
     return JSONResponse({'logged_in': False})
 
