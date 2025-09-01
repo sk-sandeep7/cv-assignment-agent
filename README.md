@@ -1,6 +1,6 @@
 # GC Agent - AI Question Generation System
 
-An intelligent question generation and evaluation system built with React frontend and FastAPI backend, powered by Azure OpenAI.
+An intelligent question generation and evaluation system built with React frontend and FastAPI backend, powered by Azure OpenAI. This is submitted as a part of Assignment for DSE312: Computer Vision course. This app tries to generate assignment questions similar to the instructor's style.
 
 ## 🚀 Features
 
@@ -22,7 +22,7 @@ GC_Agent/
 │   ├── get_examples.py     # Few-shot examples
 │   ├── requirements.txt    # Python dependencies
 │   ├── .env.example       # Environment variables template
-│   └── assignments.db     # SQLite database
+│   └── assignments.db     # SQLite database (local)
 ├── gc-agent/              # React frontend
 │   ├── src/
 │   │   ├── components/    # React components
@@ -32,6 +32,11 @@ GC_Agent/
 │   └── vite.config.js    # Vite configuration
 └── README.md
 ```
+
+## NOTE
+- This app is in the testing phase in GCP. Only the testing users authorized by the developer will be able to Log In with Google credentials.
+- If you want to test this app with your Google account. You should create a new Google Cloud Project and enable your own APIs and Credentials.
+- For more details read GOOGLE_SETUP.md file in the main repo.
 
 ## 🛠️ Setup Instructions
 
