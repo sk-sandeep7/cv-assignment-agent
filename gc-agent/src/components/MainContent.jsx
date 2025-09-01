@@ -86,7 +86,7 @@ const MainContent = ({
                             {loadingRubricIndex === i ? <div className="loader-small"></div> : 'Evaluation Metrics'}
                           </button>
                           {q.rubrics && (
-                            <button onClick={() => onViewRubrics(q.rubrics)} className="button-icon" aria-label="View Rubrics">
+                            <button                       onClick={() => onViewRubrics(q.rubrics, i)} className="button-icon" aria-label="View Rubrics">
                               👁️
                             </button>
                           )}

@@ -1,7 +1,7 @@
 import React from 'react';
 import '../Modal.css';
 
-const EvaluationModal = ({ isOpen, onClose, rubric }) => {
+const EvaluationModal = ({ isOpen, onClose, rubric, onRegenerate }) => {
   if (!isOpen) return null;
 
   return (
@@ -31,6 +31,9 @@ const EvaluationModal = ({ isOpen, onClose, rubric }) => {
           )}
         </div>
         <div className="modal-footer">
+          <button onClick={onRegenerate} className="button button-secondary">
+            Regenerate
+          </button>
           <button onClick={onClose} className="button button-primary">
             Close
           </button>

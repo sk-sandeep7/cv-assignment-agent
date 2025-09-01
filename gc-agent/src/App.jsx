@@ -21,6 +21,7 @@ function App() {
   const [isEvaluationModalOpen, setIsEvaluationModalOpen] = useState(false);
   const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
   const [currentRubric, setCurrentRubric] = useState(null);
+  const [currentRubricQuestionIndex, setCurrentRubricQuestionIndex] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [customQuestionIndex, setCustomQuestionIndex] = useState(null);
   const [loadingRubricIndex, setLoadingRubricIndex] = useState(null);
@@ -381,8 +382,18 @@ function App() {
     }
   };
 
-  const handleViewRubrics = (rubric) => {
+  const handleRegenerateRubrics = async () => {
+    if (currentRubricQuestionIndex !== null) {
+      await handleGenerateRubrics(currentRubricQuestionIndex);
+      // Update the current rubric with the newly generated one
+      const updatedRubric = assignmentQuestions[currentRubricQuestionIndex]?.rubrics;
+      setCurrentRubric(updatedRubric);
+    }
+  };
+
+  const handleViewRubrics = (rubric, questionIndex) => {
     setCurrentRubric(rubric);
+    setCurrentRubricQuestionIndex(questionIndex);
     setIsEvaluationModalOpen(true);
   };
 
@@ -525,6 +536,7 @@ function App() {
                 isOpen={isEvaluationModalOpen}
                 onClose={() => setIsEvaluationModalOpen(false)}
                 rubric={currentRubric}
+                onRegenerate={handleRegenerateRubrics}
               />
             )}
             {isAssignmentModalOpen && (
@@ -573,6 +585,7 @@ function App() {
                 isOpen={isEvaluationModalOpen}
                 onClose={() => setIsEvaluationModalOpen(false)}
                 rubric={currentRubric}
+                onRegenerate={handleRegenerateRubrics}
               />
             )}
             {isAssignmentModalOpen && (
