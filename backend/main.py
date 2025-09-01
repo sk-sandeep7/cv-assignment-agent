@@ -116,6 +116,9 @@ os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 # Temporary store for auth tokens (in production, use Redis or database)
 AUTH_TOKENS = {}
 
+# Long-term session tokens for localStorage-based authentication
+SESSION_TOKENS = {}
+
 def generate_auth_token(credentials_data):
     """Generate a temporary auth token for cross-domain authentication"""
     token_id = str(uuid.uuid4())
@@ -125,6 +128,27 @@ def generate_auth_token(credentials_data):
         'expires_at': datetime.datetime.now() + datetime.timedelta(minutes=5)  # 5 minute expiry
     }
     return token_id
+
+def generate_session_token(credentials_data):
+    """Generate a long-term session token for localStorage storage"""
+    token_id = str(uuid.uuid4())
+    SESSION_TOKENS[token_id] = {
+        'credentials': credentials_data,
+        'created_at': datetime.datetime.now(),
+        'expires_at': datetime.datetime.now() + datetime.timedelta(days=7)  # 7 day expiry
+    }
+    return token_id
+
+def get_credentials_from_session_token(token_id):
+    """Retrieve credentials from long-term session token"""
+    if token_id in SESSION_TOKENS:
+        token_data = SESSION_TOKENS[token_id]
+        if datetime.datetime.now() < token_data['expires_at']:
+            return token_data['credentials']
+        else:
+            # Token expired, remove it
+            del SESSION_TOKENS[token_id]
+    return None
 
 def get_credentials_from_token(token_id):
     """Retrieve credentials from temporary auth token"""
@@ -206,14 +230,32 @@ print(f"   Using secure cookies: {is_secure}")
 print(f"   Same-site policy: {'none' if is_production else 'lax'}")
 print(f"   Cross-site cookies enabled: {is_production}")
 
-app.add_middleware(
-    SessionMiddleware, 
-    secret_key=SECRET_KEY, 
-    max_age=SESSION_MAX_AGE,
-    same_site='none' if is_production else 'lax',  # Cross-site cookies for production (Vercel→Railway)
-    https_only=is_secure,  # Secure cookies required for cross-site requests
-    domain=None  # Let browser determine domain automatically
-)
+# For cross-site cookies to work properly, we need specific configuration
+if is_production:
+    # In production, cookie should be set for the backend domain (Railway)
+    # but accessible from frontend domain (Vercel) via CORS
+    session_config = {
+        'secret_key': SECRET_KEY,
+        'max_age': SESSION_MAX_AGE,
+        'same_site': 'none',  # Required for cross-site requests
+        'https_only': True,   # Required for SameSite=None
+        'path': '/',          # Cookie available for all paths
+        'domain': None        # Let Railway set its own domain
+    }
+else:
+    # Local development configuration
+    session_config = {
+        'secret_key': SECRET_KEY,
+        'max_age': SESSION_MAX_AGE,
+        'same_site': 'lax',   # More permissive for local dev
+        'https_only': False,  # HTTP allowed for local dev
+        'path': '/',
+        'domain': None
+    }
+
+print(f"   Final session config: {session_config}")
+
+app.add_middleware(SessionMiddleware, **session_config)
 
 # Allow CORS for frontend
 # Get allowed origins from environment variable or use localhost for development
@@ -646,6 +688,8 @@ async def api_auth_google_callback(request: Request):
         
         print(f"🔑 Session created - Session keys: {list(request.session.keys())}")
         print(f"🔑 Session created - Has credentials: {'credentials' in request.session}")
+        print(f"🔑 Session created - Request origin: {request.headers.get('origin', 'No origin')}")
+        print(f"🔑 Session created - Request host: {request.headers.get('host', 'No host')}")
         
         # Create temporary auth token for cross-domain authentication
         auth_token = generate_auth_token(credentials_data)
@@ -654,6 +698,10 @@ async def api_auth_google_callback(request: Request):
         # Redirect with auth token
         frontend_url_with_token = f"{FRONTEND_URL}?auth_token={auth_token}"
         response = RedirectResponse(url=frontend_url_with_token)
+        
+        # Debug: Check what cookies will be set
+        print(f"🔑 Response redirect URL: {frontend_url_with_token}")
+        print(f"🔑 Response headers will include session cookie")
         print(f"🔑 Redirecting with temporary auth token")
         return response
         
@@ -663,6 +711,55 @@ async def api_auth_google_callback(request: Request):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={'error': "An error occurred during token exchange", 'details': str(e)}
         )
+
+@app.post("/api/auth/create-session-token")
+async def create_session_token(request: Request):
+    """Create a long-term session token for localStorage-based authentication"""
+    data = await request.json()
+    auth_token = data.get('auth_token')
+    
+    if not auth_token:
+        raise HTTPException(status_code=400, detail="Auth token required")
+    
+    credentials_data = get_credentials_from_token(auth_token)
+    if not credentials_data:
+        raise HTTPException(status_code=400, detail="Invalid or expired auth token")
+    
+    # Create long-term session token
+    session_token = generate_session_token(credentials_data)
+    
+    # Also set session cookie as backup
+    request.session['credentials'] = credentials_data
+    
+    # Remove the used auth token
+    if auth_token in AUTH_TOKENS:
+        del AUTH_TOKENS[auth_token]
+    
+    print(f"🔑 Created session token: {session_token}")
+    return JSONResponse({
+        'status': 'success', 
+        'session_token': session_token,
+        'message': 'Session token created successfully'
+    })
+
+@app.post("/api/auth/verify-session-token")
+async def verify_session_token(request: Request):
+    """Verify session token and return authentication status"""
+    data = await request.json()
+    session_token = data.get('session_token')
+    
+    if not session_token:
+        return JSONResponse({'logged_in': False, 'message': 'No session token provided'})
+    
+    credentials_data = get_credentials_from_session_token(session_token)
+    if not credentials_data:
+        return JSONResponse({'logged_in': False, 'message': 'Invalid or expired session token'})
+    
+    # Refresh the session cookie
+    request.session['credentials'] = credentials_data
+    
+    print(f"🔑 Session token verified successfully")
+    return JSONResponse({'logged_in': True, 'message': 'Session token valid'})
 
 @app.post("/api/auth/exchange-token")
 async def exchange_auth_token(request: Request):

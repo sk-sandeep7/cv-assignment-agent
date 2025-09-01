@@ -18,28 +18,50 @@ const Submissions = () => {
 
   const checkAuthStatus = async () => {
     try {
+      // First, try cookie-based authentication
       const response = await fetch(`${API_BASE_URL}/api/check_auth`, {
         credentials: 'include'
       });
       
-      if (response.status === 401 || !response.ok) {
-        // Check for auth token in localStorage as fallback
-        const authToken = localStorage.getItem('auth_token');
-        if (authToken) {
-          console.log('Session expired, but auth token found. Attempting to refresh...');
-          // You could implement token refresh logic here
+      if (response.ok) {
+        const data = await response.json();
+        if (data.logged_in) {
+          console.log('✅ Cookie-based authentication successful');
+          return true;
         }
-        setError('Authentication expired. Please log out and log in again.');
-        return false;
       }
       
-      const data = await response.json();
-      if (!data.logged_in) {
-        setError('Authentication expired. Please log out and log in again.');
-        return false;
+      // If cookie auth fails, try session token from localStorage
+      const sessionToken = localStorage.getItem('session_token');
+      if (sessionToken) {
+        console.log('🔄 Cookie auth failed, trying session token...');
+        
+        const tokenResponse = await fetch(`${API_BASE_URL}/api/auth/verify-session-token`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({ session_token: sessionToken })
+        });
+        
+        if (tokenResponse.ok) {
+          const tokenData = await tokenResponse.json();
+          if (tokenData.logged_in) {
+            console.log('✅ Session token authentication successful');
+            return true;
+          }
+        }
+        
+        // Token is invalid, remove it
+        localStorage.removeItem('session_token');
+        console.log('❌ Session token expired, removed from localStorage');
       }
       
-      return true;
+      // Both methods failed
+      setError('Authentication expired. Please log out and log in again.');
+      return false;
+      
     } catch (error) {
       console.error('Auth check failed:', error);
       setError('Failed to verify authentication status.');
