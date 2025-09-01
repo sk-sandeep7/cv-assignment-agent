@@ -11,7 +11,7 @@ from databases import Database
 # Example for PostgreSQL: "postgresql://user:password@host:port/dbname"
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
-# Handle Railway's postgres:// URL format (SQLAlchemy 2.0+ requires postgresql://)
+# Handle Railway's postgres:// URL format (SQLAlchemy requires postgresql://)
 if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
