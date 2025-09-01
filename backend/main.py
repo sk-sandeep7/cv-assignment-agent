@@ -1280,6 +1280,8 @@ async def store_questions(req: StoreQuestionsRequest):
                 VALUES (?, ?, ?, ?, ?, ?)
             ''', (unique_id, question_text, marks, topic, evaluation_rubrics, datetime.datetime.now()))
             
+            print(f"✅ Successfully stored question with ID: {unique_id} - Question: {question_text[:50]}...")
+            
             stored_questions.append({
                 "id": unique_id,
                 "question": question_text,
