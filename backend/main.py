@@ -329,6 +329,9 @@ class GradeSubmissionsRequest(BaseModel):
     assignment_id: str
     questions: List[Dict[str, Any]]
 
+class QuestionIdsRequest(BaseModel):
+    question_ids: List[str]
+
 # --- Dependency for getting Classroom Service ---
 async def get_classroom_service(request: Request):
     """
@@ -1017,16 +1020,76 @@ async def download_drive_file(file_id: str, drive_service=Depends(get_drive_serv
         print(f"General error downloading file: {e}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
+@app.post("/api/get-questions-by-ids")
+async def get_questions_by_ids(request: Request):
+    """
+    Get stored questions by their IDs for more precise assignment-question matching
+    """
+    try:
+        data = await request.json()
+        question_ids = data.get('question_ids', [])
+        
+        if not question_ids:
+            return {
+                "status": "error",
+                "message": "No question IDs provided"
+            }
+        
+        print(f"🔍 Searching for questions with IDs: {question_ids}")
+        
+        # Create placeholders for SQL query
+        placeholders = ','.join(['?' for _ in question_ids])
+        
+        c.execute(f'''
+            SELECT id, question, marks, topic, evaluation_rubrics 
+            FROM question_assignments 
+            WHERE id IN ({placeholders})
+            ORDER BY created_at DESC
+        ''', question_ids)
+        
+        results = c.fetchall()
+        
+        questions = []
+        for row in results:
+            questions.append({
+                'id': row[0],
+                'question': row[1],
+                'marks': row[2],
+                'topic': json.loads(row[3]),
+                'rubrics': json.loads(row[4])
+            })
+        
+        print(f"✅ Found {len(questions)} questions by ID")
+        for q in questions:
+            print(f"   - ID: {q['id']}, Question: {q['question'][:50]}...")
+        
+        return {
+            'status': 'success',
+            'questions': questions
+        }
+        
+    except Exception as e:
+        print(f"❌ Error fetching questions by IDs: {e}")
+        return {
+            'status': 'error',
+            'message': f'Error fetching questions: {str(e)}'
+        }
+
+
 @app.get("/api/get-assignment-questions/{assignment_title}")
 async def get_assignment_questions(assignment_title: str):
     """
     Get stored questions for an assignment based on the assignment title.
-    This helps fetch evaluation criteria for grading.
+    This helps fetch evaluation criteria for grading (fallback method).
     """
     try:
+        print(f"🔍 Fallback: Searching questions by assignment title: {assignment_title}")
+        
         # Extract topic from assignment title (format: "Assignment-{topic}")
         if assignment_title.startswith("Assignment-"):
             topic = assignment_title.replace("Assignment-", "")
+            
+            print(f"🔍 Extracted topic from title: {topic}")
             
             # Search for questions with matching topic
             c.execute('''
@@ -1047,6 +1110,10 @@ async def get_assignment_questions(assignment_title: str):
                     'topic': json.loads(row[3]),
                     'rubrics': json.loads(row[4])
                 })
+            
+            print(f"✅ Fallback method found {len(questions)} questions")
+            for q in questions:
+                print(f"   - ID: {q['id']}, Question: {q['question'][:50]}...")
             
             return JSONResponse(content={
                 'status': 'success',

@@ -193,19 +193,57 @@ const Submissions = () => {
 
       console.log('Fetching questions for assignment:', selectedAssignmentData.title);
 
-      // Get questions with evaluation criteria for this assignment
-      const questionsResponse = await fetch(
-        `${API_BASE_URL}/api/get-assignment-questions/${encodeURIComponent(selectedAssignmentData.title)}`,
-        {
-          credentials: 'include'
+      // Extract question IDs from assignment description
+      const questionIds = [];
+      if (selectedAssignmentData.description) {
+        // Match pattern {id: xxxx} in the description
+        const idMatches = selectedAssignmentData.description.match(/\{id:\s*([^}]+)\}/g);
+        if (idMatches) {
+          idMatches.forEach(match => {
+            const id = match.match(/\{id:\s*([^}]+)\}/)[1].trim();
+            questionIds.push(id);
+          });
         }
-      );
-
-      if (!questionsResponse.ok) {
-        throw new Error('Failed to fetch assignment questions');
       }
 
-      const questionsData = await questionsResponse.json();
+      console.log('Extracted question IDs from description:', questionIds);
+
+      // Get questions with evaluation criteria using question IDs
+      let questionsData;
+      if (questionIds.length > 0) {
+        // Use question IDs for direct lookup
+        const questionsResponse = await fetch(
+          `${API_BASE_URL}/api/get-questions-by-ids`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({ question_ids: questionIds })
+          }
+        );
+
+        if (!questionsResponse.ok) {
+          throw new Error('Failed to fetch assignment questions by IDs');
+        }
+
+        questionsData = await questionsResponse.json();
+      } else {
+        // Fallback to title-based search
+        const questionsResponse = await fetch(
+          `${API_BASE_URL}/api/get-assignment-questions/${encodeURIComponent(selectedAssignmentData.title)}`,
+          {
+            credentials: 'include'
+          }
+        );
+
+        if (!questionsResponse.ok) {
+          throw new Error('Failed to fetch assignment questions');
+        }
+
+        questionsData = await questionsResponse.json();
+      }
       
       if (questionsData.status !== 'success' || !questionsData.questions || questionsData.questions.length === 0) {
         throw new Error('No questions found for this assignment. Make sure the assignment was created through this system.');
