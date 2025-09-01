@@ -307,7 +307,8 @@ async def debug_requests(request: Request, call_next):
     # Log response headers
     print(f"📤 Response Headers:")
     for header_name, header_value in response.headers.items():
-        if 'access-control' in header_name.lower():
+        # Log CORS and Set-Cookie headers for debugging
+        if 'access-control' in header_name.lower() or 'set-cookie' in header_name.lower():
             print(f"   {header_name}: {header_value}")
     print("-" * 50)
     
