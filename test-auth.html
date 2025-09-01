@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Auth Test</title>
+</head>
+<body>
+    <h1>Authentication Test</h1>
+    <button id="testAuth" onclick="testAuth()">Test Auth Check</button>
+    <button id="getAuthUrl" onclick="getAuthUrl()">Get Auth URL</button>
+    <button id="testToken" onclick="testSessionToken()">Test Session Token</button>
+    <div id="result"></div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8000';
+        
+        async function testAuth() {
+            console.log('Testing auth check...');
+            document.getElementById('result').innerHTML = 'Testing auth check...';
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/check_auth`, {
+                    credentials: 'include'
+                });
+                
+                console.log('Response status:', response.status);
+                console.log('Response headers:', [...response.headers.entries()]);
+                
+                const data = await response.json();
+                console.log('Response data:', data);
+                
+                document.getElementById('result').innerHTML = 
+                    `<pre>Status: ${response.status}\nData: ${JSON.stringify(data, null, 2)}</pre>`;
+                    
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('result').innerHTML = `Error: ${error.message}`;
+            }
+        }
+        
+        async function getAuthUrl() {
+            console.log('Getting auth URL...');
+            document.getElementById('result').innerHTML = 'Getting auth URL...';
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/auth/google/url`, {
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                console.log('Auth URL data:', data);
+                
+                document.getElementById('result').innerHTML = 
+                    `<pre>Auth URL: ${data.auth_url}</pre>`;
+                    
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('result').innerHTML = `Error: ${error.message}`;
+            }
+        }
+        
+        async function testSessionToken() {
+            const token = localStorage.getItem('session_token');
+            console.log('Testing session token:', token);
+            document.getElementById('result').innerHTML = `Session token: ${token || 'Not found'}`;
+            
+            if (token) {
+                try {
+                    const response = await fetch(`${API_BASE_URL}/api/auth/verify-session-token`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        credentials: 'include',
+                        body: JSON.stringify({ session_token: token })
+                    });
+                    
+                    const data = await response.json();
+                    console.log('Token verification data:', data);
+                    
+                    document.getElementById('result').innerHTML += 
+                        `<pre>\nToken verification: ${JSON.stringify(data, null, 2)}</pre>`;
+                        
+                } catch (error) {
+                    console.error('Error:', error);
+                    document.getElementById('result').innerHTML += `\nError: ${error.message}`;
+                }
+            }
+        }
+    </script>
+</body>
+</html>

@@ -7,6 +7,7 @@ import EvaluationModal from './components/EvaluationModal';
 import AssignmentModal from './components/AssignmentModal';
 import Submissions from './components/Submissions';
 import Login from './components/Login';
+import AuthHandler from './components/AuthHandler';
 import API_BASE_URL from './config';
 
 function App() {
@@ -30,25 +31,132 @@ function App() {
 
   // Check authentication status
   const checkAuthStatus = async () => {
+    console.log('🔐 Starting authentication check...');
     try {
+      // First, try cookie-based authentication
+      console.log('🔐 Trying cookie-based authentication...');
       const response = await fetch(`${API_BASE_URL}/api/check_auth`, {
         credentials: 'include'
       });
-      const data = await response.json();
-      console.log('Auth check result:', data); // Debug log
-      setIsAuthenticated(data.logged_in);
+      
+      console.log('🔐 Cookie auth response status:', response.status);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('🔐 Cookie auth response data:', data);
+        if (data.logged_in) {
+          console.log('✅ Cookie-based authentication successful');
+          setIsAuthenticated(true);
+          setAuthChecked(true);
+          return;
+        }
+      }
+      
+      // If cookie auth fails, try session token from localStorage
+      const sessionToken = localStorage.getItem('session_token');
+      console.log('🔐 Session token from localStorage:', sessionToken ? 'EXISTS' : 'NOT FOUND');
+      
+      if (sessionToken) {
+        console.log('🔄 Cookie auth failed, trying session token...');
+        
+        const tokenResponse = await fetch(`${API_BASE_URL}/api/auth/verify-session-token`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({ session_token: sessionToken })
+        });
+        
+        console.log('🔐 Session token auth response status:', tokenResponse.status);
+        
+        if (tokenResponse.ok) {
+          const tokenData = await tokenResponse.json();
+          console.log('🔐 Session token auth response data:', tokenData);
+          if (tokenData.logged_in) {
+            console.log('✅ Session token authentication successful');
+            setIsAuthenticated(true);
+            setAuthChecked(true);
+            return;
+          }
+        }
+        
+        // Token is invalid, remove it
+        localStorage.removeItem('session_token');
+        console.log('❌ Session token expired, removed from localStorage');
+      }
+      
+      // Both methods failed
+      console.log('❌ Authentication failed, redirecting to login');
+      setIsAuthenticated(false);
       setAuthChecked(true);
       
       // Only redirect if not authenticated and on a protected route
-      if (!data.logged_in && (location.pathname === '/home' || location.pathname === '/questions' || location.pathname === '/submissions')) {
-        console.log('Not authenticated, redirecting to login'); // Debug log
+      if (location.pathname === '/home' || location.pathname === '/questions' || location.pathname === '/submissions') {
         navigate('/login');
       }
+      
     } catch (error) {
-      console.error('Auth check failed:', error);
+      console.error('❌ Auth check failed:', error);
       setIsAuthenticated(false);
       setAuthChecked(true);
       if (location.pathname !== '/login') {
+        navigate('/login');
+      }
+    }
+  };
+
+  // Handle auth token from OAuth callback and create session token
+  const handleAuthCallback = async () => {
+    // Check if we have an auth_token in the URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const authToken = urlParams.get('auth_token');
+    
+    if (authToken) {
+      console.log('🔑 Auth token found in URL, creating session token...');
+      
+      try {
+        // Create a long-term session token
+        const response = await fetch(`${API_BASE_URL}/api/auth/create-session-token`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({ auth_token: authToken })
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          const sessionToken = data.session_token;
+          
+          // Store session token in localStorage
+          localStorage.setItem('session_token', sessionToken);
+          console.log('✅ Session token stored in localStorage');
+          
+          // Clean up URL
+          window.history.replaceState({}, document.title, window.location.pathname);
+          
+          // Set authenticated state
+          setIsAuthenticated(true);
+          setAuthChecked(true);
+          
+          // Navigate to home
+          navigate('/home');
+          
+        } else {
+          console.error('❌ Failed to create session token');
+          localStorage.removeItem('session_token');
+          setIsAuthenticated(false);
+          setAuthChecked(true);
+          navigate('/login');
+        }
+        
+      } catch (error) {
+        console.error('❌ Error creating session token:', error);
+        localStorage.removeItem('session_token');
+        setIsAuthenticated(false);
+        setAuthChecked(true);
         navigate('/login');
       }
     }
@@ -93,7 +201,7 @@ function App() {
     
     if (authToken) {
       // Handle OAuth redirect with auth token
-      handleAuthTokenExchange(authToken);
+      handleAuthCallback();
     } else if (location.pathname === '/home' && !authChecked) {
       // Add a small delay for OAuth redirects to allow session to establish
       setTimeout(() => {
@@ -110,6 +218,8 @@ function App() {
         method: 'POST',
         credentials: 'include'
       });
+      // Clear session token from localStorage
+      localStorage.removeItem('session_token');
       // Reset authentication state
       setIsAuthenticated(false);
       // Redirect to login page
@@ -117,6 +227,7 @@ function App() {
     } catch (error) {
       console.error('Logout error:', error);
       // Still reset state and redirect even if logout API fails
+      localStorage.removeItem('session_token');
       setIsAuthenticated(false);
       navigate('/login');
     }
