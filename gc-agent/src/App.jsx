@@ -376,8 +376,12 @@ function App() {
       const updatedQuestions = [...assignmentQuestions];
       updatedQuestions[index] = { ...question, rubrics: data.rubric };
       setAssignmentQuestions(updatedQuestions);
+      
+      // Return the new rubric data for immediate use
+      return data.rubric;
     } catch (err) {
       alert('Failed to generate evaluation rubrics.');
+      throw err; // Re-throw to handle in caller
     } finally {
       setLoadingRubricIndex(null);
     }
@@ -387,10 +391,11 @@ function App() {
     if (currentRubricQuestionIndex !== null) {
       setIsRegeneratingRubric(true);
       try {
-        await handleGenerateRubrics(currentRubricQuestionIndex);
-        // Update the current rubric with the newly generated one
-        const updatedRubric = assignmentQuestions[currentRubricQuestionIndex]?.rubrics;
-        setCurrentRubric(updatedRubric);
+        const newRubric = await handleGenerateRubrics(currentRubricQuestionIndex);
+        // Update the current rubric with the newly generated one directly
+        setCurrentRubric(newRubric);
+      } catch (err) {
+        console.error('Failed to regenerate rubrics:', err);
       } finally {
         setIsRegeneratingRubric(false);
       }
