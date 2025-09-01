@@ -29,9 +29,44 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
 
+  // Monitor localStorage changes for debugging
+  useEffect(() => {
+    console.log('📱 App component mounted, checking initial localStorage state');
+    console.log('🔐 Initial localStorage keys:', Object.keys(localStorage));
+    console.log('🔐 Initial session_token:', localStorage.getItem('session_token')?.substring(0, 10) + '...' || 'NOT FOUND');
+    
+    // Set up storage event listener to detect when localStorage is cleared by other tabs/scripts
+    const handleStorageChange = (e) => {
+      console.log('🔄 Storage event detected:', {
+        key: e.key,
+        oldValue: e.oldValue?.substring(0, 10) + '...' || e.oldValue,
+        newValue: e.newValue?.substring(0, 10) + '...' || e.newValue,
+        url: e.url
+      });
+      
+      if (e.key === 'session_token' && !e.newValue && e.oldValue) {
+        console.log('⚠️ Session token was removed from localStorage by external source!');
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
+  // Monitor authentication state changes
+  useEffect(() => {
+    console.log('🔐 Authentication state changed:', { isAuthenticated, authChecked });
+  }, [isAuthenticated, authChecked]);
+
   // Check authentication status
   const checkAuthStatus = async () => {
     console.log('🔐 Starting authentication check...');
+    console.log('🔐 Current localStorage session_token:', localStorage.getItem('session_token'));
+    console.log('🔐 All localStorage keys:', Object.keys(localStorage));
+    
     try {
       // First, try cookie-based authentication
       console.log('🔐 Trying cookie-based authentication...');
@@ -54,7 +89,7 @@ function App() {
       
       // If cookie auth fails, try session token from localStorage
       const sessionToken = localStorage.getItem('session_token');
-      console.log('🔐 Session token from localStorage:', sessionToken ? 'EXISTS' : 'NOT FOUND');
+      console.log('🔐 Session token from localStorage:', sessionToken ? `EXISTS (${sessionToken.substring(0, 10)}...)` : 'NOT FOUND');
       
       if (sessionToken) {
         console.log('🔄 Cookie auth failed, trying session token...');
@@ -82,8 +117,9 @@ function App() {
         }
         
         // Token is invalid, remove it
+        console.log('❌ Session token expired or invalid, removing from localStorage');
         localStorage.removeItem('session_token');
-        console.log('❌ Session token expired, removed from localStorage');
+        console.log('🔐 localStorage after removal:', Object.keys(localStorage));
       }
       
       // Both methods failed
@@ -131,7 +167,10 @@ function App() {
           const sessionToken = data.session_token;
           
           // Store session token in localStorage
+          console.log('💾 Storing session token in localStorage:', sessionToken.substring(0, 10) + '...');
           localStorage.setItem('session_token', sessionToken);
+          console.log('💾 localStorage after setting token:', Object.keys(localStorage));
+          console.log('💾 Verification - stored token:', localStorage.getItem('session_token')?.substring(0, 10) + '...');
           console.log('✅ Session token stored in localStorage');
           
           // Clean up URL
@@ -195,39 +234,50 @@ function App() {
 
   // Check auth status on mount and when location changes
   useEffect(() => {
+    console.log('🔄 useEffect triggered, pathname:', location.pathname);
+    
     // Check for auth token in URL first
     const urlParams = new URLSearchParams(window.location.search);
     const authToken = urlParams.get('auth_token');
     
     if (authToken) {
+      console.log('🔑 Auth token found in URL, processing...');
       // Handle OAuth redirect with auth token
       handleAuthCallback();
-    } else if (location.pathname === '/home' && !authChecked) {
-      // Add a small delay for OAuth redirects to allow session to establish
-      setTimeout(() => {
-        checkAuthStatus();
-      }, 500);
     } else {
+      console.log('🔍 No auth token in URL, checking existing auth status...');
+      // Always check auth status regardless of route
       checkAuthStatus();
     }
   }, [location.pathname]);
 
   const handleLogout = async () => {
+    console.log('🚪 Starting logout process...');
+    console.log('🔐 localStorage before logout:', Object.keys(localStorage));
+    console.log('🔐 Session token before logout:', localStorage.getItem('session_token')?.substring(0, 10) + '...');
+    
     try {
       await fetch(`${API_BASE_URL}/api/auth/google/logout`, {
         method: 'POST',
         credentials: 'include'
       });
       // Clear session token from localStorage
+      console.log('🗑️ Removing session token from localStorage...');
       localStorage.removeItem('session_token');
+      console.log('🔐 localStorage after logout:', Object.keys(localStorage));
+      console.log('🔐 Session token after logout:', localStorage.getItem('session_token'));
+      
       // Reset authentication state
       setIsAuthenticated(false);
       // Redirect to login page
       navigate('/login');
+      console.log('✅ Logout completed successfully');
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error('❌ Logout error:', error);
       // Still reset state and redirect even if logout API fails
+      console.log('🗑️ Clearing localStorage due to error...');
       localStorage.removeItem('session_token');
+      console.log('🔐 localStorage after error cleanup:', Object.keys(localStorage));
       setIsAuthenticated(false);
       navigate('/login');
     }
