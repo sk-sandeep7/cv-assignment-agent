@@ -16,11 +16,20 @@ import hashlib
 import base64
 from urllib.parse import quote
 
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+    print("✅ Environment variables loaded from .env file")
+except ImportError:
+    print("⚠️ python-dotenv not installed, environment variables may not load from .env file")
+
 # Add startup debugging
 print("🚀 Starting application...")
 print(f"Python version: {os.sys.version}")
 print(f"Current working directory: {os.getcwd()}")
 print(f"PORT environment variable: {os.getenv('PORT', 'Not set')}")
+print(f"SESSION_SECRET_KEY set: {'Yes' if os.getenv('SESSION_SECRET_KEY') else 'No'}")
 
 # CRITICAL: Create client_secret.json IMMEDIATELY - inline execution
 print("🔑 CRITICAL: Attempting to ensure client_secret.json exists...")
@@ -185,17 +194,22 @@ else:
 SESSION_MAX_AGE = 7 * 24 * 60 * 60  # 7 days in seconds
 
 # Configure session middleware with appropriate settings for Railway
+is_production = os.getenv('RAILWAY_PUBLIC_DOMAIN') is not None
+is_secure = is_production
+
 print(f"🍪 Session middleware configuration:")
 print(f"   SECRET_KEY length: {len(SECRET_KEY)}")
 print(f"   SESSION_MAX_AGE: {SESSION_MAX_AGE} seconds")
-print(f"   Using secure cookies: {os.getenv('RAILWAY_PUBLIC_DOMAIN') is not None}")
+print(f"   Production mode: {is_production}")
+print(f"   Using secure cookies: {is_secure}")
+print(f"   Same-site policy: {'none' if is_production else 'lax'}")
 
 app.add_middleware(
     SessionMiddleware, 
     secret_key=SECRET_KEY, 
     max_age=SESSION_MAX_AGE,
-    same_site='none',  # Allow cross-site cookies for OAuth between domains
-    https_only=True   # Secure cookies required for cross-site requests
+    same_site='none' if is_production else 'lax',  # Cross-site for production, lax for local
+    https_only=is_secure  # Secure cookies only in production
 )
 
 # Allow CORS for frontend
