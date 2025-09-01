@@ -1,7 +1,7 @@
 import React from 'react';
 import '../Modal.css';
 
-const EvaluationModal = ({ isOpen, onClose, rubric, onRegenerate }) => {
+const EvaluationModal = ({ isOpen, onClose, rubric, onRegenerate, isRegenerating }) => {
   if (!isOpen) return null;
 
   return (
@@ -9,7 +9,12 @@ const EvaluationModal = ({ isOpen, onClose, rubric, onRegenerate }) => {
       <div className="modal-content">
         <h3 className="modal-title">Evaluation Rubric</h3>
         <div className="modal-body">
-          {rubric && rubric.length > 0 ? (
+          {isRegenerating ? (
+            <div style={{ textAlign: 'center', padding: '20px' }}>
+              <div className="spinner"></div>
+              <p>Regenerating rubrics...</p>
+            </div>
+          ) : rubric && rubric.length > 0 ? (
             <table className="rubric-table">
               <thead>
                 <tr>
@@ -31,8 +36,16 @@ const EvaluationModal = ({ isOpen, onClose, rubric, onRegenerate }) => {
           )}
         </div>
         <div className="modal-footer">
-          <button onClick={onRegenerate} className="button button-secondary">
-            Regenerate
+          <button 
+            onClick={onRegenerate} 
+            className="button button-secondary"
+            disabled={isRegenerating}
+            style={{ 
+              opacity: isRegenerating ? 0.6 : 1,
+              cursor: isRegenerating ? 'not-allowed' : 'pointer'
+            }}
+          >
+            {isRegenerating ? 'Regenerating...' : 'Regenerate'}
           </button>
           <button onClick={onClose} className="button button-primary">
             Close
