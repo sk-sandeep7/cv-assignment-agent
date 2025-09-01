@@ -195,6 +195,7 @@ SESSION_MAX_AGE = 7 * 24 * 60 * 60  # 7 days in seconds
 
 # Configure session middleware with appropriate settings for Railway
 is_production = os.getenv('RAILWAY_PUBLIC_DOMAIN') is not None
+# For cross-site cookies (Vercel frontend → Railway backend), always use secure cookies in production
 is_secure = is_production
 
 print(f"🍪 Session middleware configuration:")
@@ -203,13 +204,15 @@ print(f"   SESSION_MAX_AGE: {SESSION_MAX_AGE} seconds")
 print(f"   Production mode: {is_production}")
 print(f"   Using secure cookies: {is_secure}")
 print(f"   Same-site policy: {'none' if is_production else 'lax'}")
+print(f"   Cross-site cookies enabled: {is_production}")
 
 app.add_middleware(
     SessionMiddleware, 
     secret_key=SECRET_KEY, 
     max_age=SESSION_MAX_AGE,
-    same_site='none' if is_production else 'lax',  # Cross-site for production, lax for local
-    https_only=is_secure  # Secure cookies only in production
+    same_site='none' if is_production else 'lax',  # Cross-site cookies for production (Vercel→Railway)
+    https_only=is_secure,  # Secure cookies required for cross-site requests
+    domain=None  # Let browser determine domain automatically
 )
 
 # Allow CORS for frontend
@@ -458,6 +461,23 @@ def read_root():
         "version": "1.0.2"
     }
 
+@app.get("/debug/session-config")
+def debug_session_config():
+    """Debug endpoint to check session configuration"""
+    return {
+        "message": "Session Configuration Debug",
+        "session_secret_key_set": bool(os.getenv('SESSION_SECRET_KEY')),
+        "session_secret_key_length": len(os.getenv('SESSION_SECRET_KEY', '')),
+        "session_max_age": SESSION_MAX_AGE,
+        "is_production": os.getenv('RAILWAY_PUBLIC_DOMAIN') is not None,
+        "railway_domain": os.getenv('RAILWAY_PUBLIC_DOMAIN', 'Not set'),
+        "environment_vars": {
+            "RAILWAY_PUBLIC_DOMAIN": os.getenv('RAILWAY_PUBLIC_DOMAIN', 'Not set'),
+            "ALLOWED_ORIGINS": os.getenv("ALLOWED_ORIGINS", "Not set"),
+            "SESSION_SECRET_KEY": "SET" if os.getenv('SESSION_SECRET_KEY') else "NOT SET"
+        }
+    }
+
 @app.get("/debug/cors")
 def debug_cors_info(request: Request):
     """Debug endpoint to check CORS configuration"""
@@ -676,10 +696,18 @@ async def api_auth_google_logout(request: Request):
 @app.get("/api/check_auth")
 async def api_check_auth(request: Request):
     """Checks if a user's session and credentials exist and haven't expired."""
-    print(f"🔐 Auth check - Session keys: {list(request.session.keys())}")
-    print(f"🔐 Auth check - Has credentials: {'credentials' in request.session}")
-    print(f"🔐 Auth check - Session ID: {request.session.get('_session_id', 'No ID')}")
-    print(f"🔐 Auth check - Request cookies: {request.cookies}")
+    # Enhanced debugging for session issues
+    origin = request.headers.get("origin", "No Origin")
+    user_agent = request.headers.get("user-agent", "No User-Agent")[:50]
+    
+    print(f"🔐 Auth check - Request details:")
+    print(f"   Origin: {origin}")
+    print(f"   User-Agent: {user_agent}...")
+    print(f"   Cookie header: {request.headers.get('cookie', 'No Cookie Header')}")
+    print(f"   Session keys: {list(request.session.keys())}")
+    print(f"   Has credentials: {'credentials' in request.session}")
+    print(f"   Session ID: {request.session.get('_session_id', 'No ID')}")
+    print(f"   All cookies: {dict(request.cookies)}")
     
     if 'credentials' in request.session:
         credentials_dict = request.session['credentials']
@@ -690,16 +718,19 @@ async def api_check_auth(request: Request):
             current_time = datetime.datetime.now()
             time_diff = current_time - login_time
             
+            print(f"🔐 Session age: {time_diff.days} days, {time_diff.seconds} seconds")
+            
             # If more than 7 days have passed, clear session and return logged out
             if time_diff.days >= 7:
+                print(f"🔐 Session expired after 7 days - clearing session")
                 request.session.clear()
                 return JSONResponse({'logged_in': False, 'message': 'Session expired after 7 days'})
         
-        print(f"🔐 Auth check - User is authenticated")
+        print(f"🔐 Auth check - User is authenticated ✅")
         return JSONResponse({'logged_in': True})
     
-    print(f"🔐 Auth check - User is NOT authenticated")
-    return JSONResponse({'logged_in': False})
+    print(f"🔐 Auth check - User is NOT authenticated ❌")
+    return JSONResponse({'logged_in': False, 'message': 'No session found'})
 
 @app.get("/api/classroom/courses")
 async def api_get_courses(service=Depends(get_classroom_service)):
