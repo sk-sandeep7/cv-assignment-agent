@@ -11,8 +11,41 @@ const Submissions = () => {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    // Check if user is authenticated on component mount
+    checkAuthStatus();
     fetchCourses();
   }, []);
+
+  const checkAuthStatus = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/check_auth`, {
+        credentials: 'include'
+      });
+      
+      if (response.status === 401 || !response.ok) {
+        // Check for auth token in localStorage as fallback
+        const authToken = localStorage.getItem('auth_token');
+        if (authToken) {
+          console.log('Session expired, but auth token found. Attempting to refresh...');
+          // You could implement token refresh logic here
+        }
+        setError('Authentication expired. Please log out and log in again.');
+        return false;
+      }
+      
+      const data = await response.json();
+      if (!data.logged_in) {
+        setError('Authentication expired. Please log out and log in again.');
+        return false;
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Auth check failed:', error);
+      setError('Failed to verify authentication status.');
+      return false;
+    }
+  };
 
   useEffect(() => {
     if (selectedCourse) {
